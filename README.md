@@ -12,13 +12,13 @@
 ## Install
 
 ```bash
-git clone https://github.com/greptileai/skill.git ~/.claude/skills/greptile
+git clone https://github.com/greptileai/skills.git ~/.claude/skills/greptile
 ```
 
 Or as a submodule:
 
 ```bash
-git submodule add https://github.com/greptileai/skill.git .skills/greptile
+git submodule add https://github.com/greptileai/skills.git .skills/greptile
 ```
 
 Skills are auto-discovered from the directory. Each subfolder with a `SKILL.md` is a skill.
