@@ -1,49 +1,31 @@
-# check-pr
+# greptile skills
 
-An [Agent Skill](https://agentskills.io) that checks a GitHub pull request for unresolved review comments, failing status checks, and incomplete descriptions — then helps you fix them.
+[Agent Skills](https://agentskills.io) for automated PR review workflows. Requires `git` + `gh` CLI.
 
-## What it does
+## Skills
 
-1. Detects the PR for your current branch (or accepts a PR number)
-2. Waits for all status checks to complete
-3. Analyzes review comments, CI results, and PR description
-4. Categorizes issues as **actionable**, **informational**, or **already addressed**
-5. Optionally fixes issues and resolves review threads
+| Skill | Description |
+|-------|-------------|
+| [`check-pr`](check-pr/) | Check a PR for unresolved comments, failing checks, incomplete description. Fix and resolve. |
+| [`greptimize`](greptimize/) | Loop: trigger Greptile review, fix comments, re-review — until 5/5 confidence and zero comments. |
 
-## Requirements
-
-- `git`
-- [`gh`](https://cli.github.com/) (GitHub CLI), authenticated
-
-## Installation
-
-Copy or symlink the `check-pr/` directory into your agent's skill directory.
-
-For example, with Claude Code:
+## Install
 
 ```bash
-# Clone into your global skills directory
-git clone https://github.com/greptileai/skill.git ~/.claude/skills/check-pr-skill
+git clone https://github.com/greptileai/skill.git ~/.claude/skills/greptile
 ```
 
-Or add as a git submodule in your project:
+Or as a submodule:
 
 ```bash
-git submodule add https://github.com/greptileai/skill.git .claude/skills/check-pr-skill
+git submodule add https://github.com/greptileai/skill.git .skills/greptile
 ```
 
-## Skill structure
+Skills are auto-discovered from the directory. Each subfolder with a `SKILL.md` is a skill.
 
-```
-check-pr/
-├── SKILL.md                        # Skill definition (instructions + metadata)
-└── references/
-    └── graphql-queries.md          # GitHub GraphQL query reference
-```
+## Usage
 
-## Specification
-
-This skill follows the [Agent Skills specification](https://agentskills.io/specification.md).
+Invoke by name in your agent (e.g. `/check-pr 123` or `/greptimize`). If no PR number is given, both skills auto-detect the PR for the current branch.
 
 ## License
 
