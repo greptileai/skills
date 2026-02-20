@@ -13,15 +13,20 @@
 
 ```bash
 git clone https://github.com/greptileai/skills.git ~/.claude/skills/greptile
+cd ~/.claude/skills
+ln -s greptile/check-pr check-pr
+ln -s greptile/greploop greploop
 ```
 
 Or as a submodule:
 
 ```bash
 git submodule add https://github.com/greptileai/skills.git .skills/greptile
+ln -s greptile/check-pr .skills/check-pr
+ln -s greptile/greploop .skills/greploop
 ```
 
-Skills are auto-discovered from the directory. Each subfolder with a `SKILL.md` is a skill.
+Claude Code discovers skills by looking for `SKILL.md` files at `~/.claude/skills/<skill-name>/SKILL.md`. Since this is a multi-skill repo, symlinks are needed to expose each sub-skill at the expected depth.
 
 ## Usage
 
