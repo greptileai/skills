@@ -37,10 +37,16 @@ Repeat the following cycle. **Max 5 iterations** to avoid runaway loops.
 
 #### A. Trigger Greptile review
 
-Push the latest changes (if any) and wait for Greptile's review check to appear:
+Push the latest changes (if any):
 
 ```bash
 git push
+```
+
+Then request a fresh Greptile review by posting a PR comment (Greptile watches for this trigger):
+
+```bash
+gh pr comment <PR_NUMBER> --body "@greptile review"
 ```
 
 Then poll for the Greptile check to complete:
