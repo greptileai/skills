@@ -61,9 +61,27 @@ Then poll for the Greptile check to complete:
 
 ```bash
 HEAD_SHA=$(gh pr view <PR_NUMBER> --json headRefOid -q .headRefOid)
-GREPTILE_RUN_ID=$(gh api "repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs" \
-  --jq '.check_runs[] | select(.name | test("greptile"; "i")) | .id')
-gh run watch $GREPTILE_RUN_ID
+
+# Poll for Greptile check run to complete (check runs, not action runs)
+while true; do
+  GREPTILE_CHECK=$(gh api "repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs" \
+    --jq '.check_runs[] | select(.name | test("greptile"; "i"))')
+  
+  STATUS=$(echo "$GREPTILE_CHECK" | jq -r '.status // "completed"')
+  CONCLUSION=$(echo "$GREPTILE_CHECK" | jq -r '.conclusion // "pending"')
+  
+  if [ "$STATUS" == "completed" ]; then
+    if [ "$CONCLUSION" == "success" ]; then
+      echo "Greptile check passed!"
+    else
+      echo "Greptile check completed with: $CONCLUSION"
+    fi
+    break
+  fi
+  
+  echo "Waiting for Greptile... (status: $STATUS)"
+  sleep 10
+done
 ```
 
 #### B. Fetch Greptile review results
