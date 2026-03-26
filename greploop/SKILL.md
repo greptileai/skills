@@ -6,7 +6,7 @@ description: >
   re-triggers review, and repeats. Use when the user wants to fully optimize a PR against
   Greptile's code review standards.
 license: MIT
-compatibility: Requires git, gh (GitHub CLI) authenticated, and Greptile installed on the repo.
+compatibility: Requires bash, git, gh (GitHub CLI) authenticated, and Greptile installed on the repo.
 metadata:
   author: greptileai
   version: "1.0"
@@ -66,18 +66,25 @@ fi
 Then poll for the Greptile check to complete:
 
 ```bash
+#!/bin/bash
 HEAD_SHA=$(gh pr view <PR_NUMBER> --json headRefOid -q .headRefOid)
 
 # Poll for Greptile check run to complete (check runs, not action runs)
 while true; do
   GREPTILE_CHECK=$(gh api "repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs" \
-    --jq '.check_runs[] | select(.name | test("greptile"; "i"))')
+    --jq '.check_runs[] | select(.name | test("greptile"; "i"))' 2>/dev/null)
+  
+  if [ -z "$GREPTILE_CHECK" ]; then
+    echo "Waiting for Greptile check to appear..."
+    sleep 5
+    continue
+  fi
   
   STATUS=$(echo "$GREPTILE_CHECK" | jq -r '.status // "completed"')
   CONCLUSION=$(echo "$GREPTILE_CHECK" | jq -r '.conclusion // "pending"')
   
-  if [ "$STATUS" == "completed" ]; then
-    if [ "$CONCLUSION" == "success" ]; then
+  if [ "$STATUS" = "completed" ]; then
+    if [ "$CONCLUSION" = "success" ]; then
       echo "Greptile check passed!"
     else
       echo "Greptile check completed with: $CONCLUSION"
