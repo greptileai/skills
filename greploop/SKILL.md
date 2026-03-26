@@ -43,10 +43,18 @@ Push the latest changes (if any):
 git push
 ```
 
-Then request a fresh Greptile review by posting a PR comment (Greptile watches for this trigger):
+Check if Greptile is already running on this PR before posting a new trigger comment:
 
 ```bash
-gh pr comment <PR_NUMBER> --body "@greptile review"
+GREPTILE_STATE=$(gh pr checks <PR_NUMBER> --json name,state | jq -r '.[] | select(.name | test("greptile"; "i")) | .state')
+```
+
+If Greptile is **not** already running (`PENDING` or `IN_PROGRESS`), request a fresh review by posting a PR comment (Greptile watches for this trigger):
+
+```bash
+if [ "$GREPTILE_STATE" != "PENDING" ] && [ "$GREPTILE_STATE" != "IN_PROGRESS" ]; then
+  gh pr comment <PR_NUMBER> --body "@greptile review"
+fi
 ```
 
 Then poll for the Greptile check to complete:
