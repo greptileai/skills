@@ -57,17 +57,25 @@ gh pr checks <PR_NUMBER> --watch
 
 #### B. Fetch Greptile review results
 
-Get the latest review from Greptile:
+Greptile may surface its score in two places — check **both**:
+
+**1. PR description (body):** Greptile often edits the PR description in place on every review cycle. Fetch the current body and scan it for a confidence score:
+
+```bash
+gh pr view <PR_NUMBER> --json body -q '.body'
+```
+
+**2. PR reviews:** Also fetch the reviews list and look for the most recent entry from `greptile-apps[bot]` or `greptile-apps-staging[bot]`:
 
 ```bash
 gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/reviews
 ```
 
-Look for the most recent review from `greptile-apps[bot]` or `greptile-apps-staging[bot]`.
+For both sources, parse the text for:
+- **Confidence score**: a pattern like `3/5` or `5/5` (or `Confidence: 3/5`).
+- **Comment count**: Number of inline review comments noted in the summary.
 
-Parse the review body for:
-- **Confidence score**: Greptile includes a score like `3/5` or `5/5` in its review summary.
-- **Comment count**: Number of inline review comments.
+Use whichever source has the **most recent** score. If the PR body contains a score and the reviews list is empty or has no Greptile entry, the PR body score is authoritative.
 
 Also fetch all unresolved inline comments:
 
