@@ -43,6 +43,12 @@ Push the latest changes (if any):
 git push
 ```
 
+Wait for checks to start after push:
+
+```bash
+sleep 5
+```
+
 Check if Greptile is already running on this PR before posting a new trigger comment:
 
 ```bash
@@ -163,6 +169,12 @@ mutation {
 git add -A
 git commit -m "address greptile review feedback (greploop iteration N)"
 git push
+```
+
+Wait for checks to start after push:
+
+```bash
+sleep 5
 ```
 
 Then go back to step **A**.
