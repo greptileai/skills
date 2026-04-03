@@ -1,35 +1,60 @@
 ---
 name: greploop
 description: >
-  Iteratively improves a PR until Greptile gives it a 5/5 confidence score with zero
-  unresolved comments. Triggers Greptile review, fixes all actionable comments, pushes,
-  re-triggers review, and repeats. Use when the user wants to fully optimize a PR against
-  Greptile's code review standards.
+  Iteratively improves a PR (GitHub) or MR (GitLab) until Greptile gives it a 5/5 confidence
+  score with zero unresolved comments. Triggers Greptile review, fixes all actionable comments,
+  pushes, re-triggers review, and repeats. Use when the user wants to fully optimize a PR/MR
+  against Greptile's code review standards.
 license: MIT
-compatibility: Requires git, gh (GitHub CLI) authenticated, and Greptile installed on the repo.
+compatibility: Requires git, gh (GitHub CLI) or glab (GitLab CLI) authenticated, and Greptile installed on the repo.
 metadata:
   author: greptileai
-  version: "1.0"
-allowed-tools: Bash(gh:*) Bash(git:*)
+  version: "1.1"
+allowed-tools: Bash(gh:*) Bash(glab:*) Bash(git:*)
 ---
 
 # Greploop
 
-Iteratively fix a PR until Greptile gives a perfect review: 5/5 confidence, zero unresolved comments.
+Iteratively fix a PR/MR until Greptile gives a perfect review: 5/5 confidence, zero unresolved comments.
 
 ## Inputs
 
-- **PR number** (optional): If not provided, detect the PR for the current branch.
+- **PR/MR number** (optional): If not provided, detect the PR/MR for the current branch.
 
 ## Instructions
 
-### 1. Identify the PR
+### 0. Detect platform
 
+Inspect the git remote URL to determine whether this is a GitHub or GitLab repository:
+
+```bash
+REMOTE_URL=$(git remote get-url origin)
+if echo "$REMOTE_URL" | grep -qi "gitlab"; then
+  VCS="gitlab"
+else
+  VCS="github"
+fi
+```
+
+For self-hosted GitLab instances whose hostname doesn't contain "gitlab", the user can override by passing `--vcs gitlab` as an input.
+
+### 1. Identify the PR/MR
+
+**GitHub:**
 ```bash
 gh pr view --json number,headRefName -q '{number: .number, branch: .headRefName}'
 ```
 
-Switch to the PR branch if not already on it.
+**GitLab:**
+```bash
+glab mr view --output json | jq '{iid: .iid, branch: .source_branch}'
+```
+
+Switch to the PR/MR branch if not already on it.
+
+Key field differences:
+- GitHub: `number`, `headRefName`, `headRefOid`
+- GitLab: `iid`, `source_branch`, `sha`
 
 ### 2. Loop
 
@@ -49,13 +74,13 @@ Wait for checks to start after push:
 sleep 5
 ```
 
-Check if Greptile is already running on this PR before posting a new trigger comment:
+**GitHub** — check if Greptile is already running before posting a new trigger comment:
 
 ```bash
 GREPTILE_STATE=$(gh pr checks <PR_NUMBER> --json name,state | jq -r '.[] | select(.name | test("greptile"; "i")) | .state')
 ```
 
-If Greptile is **not** already running (`PENDING` or `IN_PROGRESS`), request a fresh review by posting a PR comment (Greptile watches for this trigger):
+If Greptile is **not** already running (`PENDING` or `IN_PROGRESS`), request a fresh review:
 
 ```bash
 if [ "$GREPTILE_STATE" != "PENDING" ] && [ "$GREPTILE_STATE" != "IN_PROGRESS" ]; then
@@ -63,12 +88,11 @@ if [ "$GREPTILE_STATE" != "PENDING" ] && [ "$GREPTILE_STATE" != "IN_PROGRESS" ];
 fi
 ```
 
-Then poll for the Greptile check to complete:
+Then poll for the Greptile check run to complete:
 
 ```bash
 HEAD_SHA=$(gh pr view <PR_NUMBER> --json headRefOid -q .headRefOid)
 
-# Poll for Greptile check run to complete (check runs, not action runs)
 while true; do
   GREPTILE_CHECK=$(gh api "repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs" \
     --jq '.check_runs[] | select(.name | test("greptile"; "i"))' 2>/dev/null)
@@ -96,35 +120,110 @@ while true; do
 done
 ```
 
+**GitLab** — check if Greptile is already running before posting a trigger comment:
+
+```bash
+PIPELINES=$(glab api "projects/:fullpath/merge_requests/<MR_IID>/pipelines")
+GREPTILE_RUNNING=$(echo "$PIPELINES" | jq '[.[] | select(.status == "running" or .status == "pending")] | length')
+```
+
+If no pipeline is running, post a trigger comment:
+
+```bash
+if [ "$GREPTILE_RUNNING" = "0" ]; then
+  glab mr note <MR_IID> --message "@greptile review"
+fi
+```
+
+Then poll for the Greptile pipeline job to complete (see [GitLab API reference](references/gitlab-api.md)):
+
+```bash
+HEAD_SHA=$(glab mr view <MR_IID> --output json | jq -r '.sha')
+
+while true; do
+  PIPELINES=$(glab api "projects/:fullpath/merge_requests/<MR_IID>/pipelines")
+  # Find the most recent pipeline for this SHA
+  PIPELINE_ID=$(echo "$PIPELINES" | jq -r --arg sha "$HEAD_SHA" \
+    '[.[] | select(.sha == $sha)] | sort_by(.id) | last | .id // empty')
+
+  if [ -z "$PIPELINE_ID" ]; then
+    echo "Waiting for Greptile pipeline to appear..."
+    sleep 5
+    continue
+  fi
+
+  JOBS=$(glab api "projects/:fullpath/pipelines/$PIPELINE_ID/jobs")
+  GREPTILE_JOB=$(echo "$JOBS" | jq '.[] | select(.name | test("greptile"; "i"))')
+
+  if [ -z "$GREPTILE_JOB" ]; then
+    echo "Waiting for Greptile job to appear..."
+    sleep 5
+    continue
+  fi
+
+  JOB_STATUS=$(echo "$GREPTILE_JOB" | jq -r '.status')
+
+  if [ "$JOB_STATUS" = "success" ] || [ "$JOB_STATUS" = "failed" ] || [ "$JOB_STATUS" = "canceled" ]; then
+    echo "Greptile job completed with: $JOB_STATUS"
+    break
+  fi
+
+  echo "Waiting for Greptile... (status: $JOB_STATUS)"
+  sleep 10
+done
+```
+
 #### B. Fetch Greptile review results
 
 Greptile may surface its score in two places — check **both**:
 
-**1. PR description (body):** Greptile often edits the PR description in place on every review cycle. Fetch the current body and scan it for a confidence score:
+**GitHub:**
 
+**1. PR description (body):**
 ```bash
 gh pr view <PR_NUMBER> --json body -q '.body'
 ```
 
-**2. PR reviews:** Also fetch the reviews list and look for the most recent entry from `greptile-apps[bot]` or `greptile-apps-staging[bot]`:
-
+**2. PR reviews:**
 ```bash
 gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/reviews
 ```
 
-For both sources, parse the text for:
+Look for the most recent entry from `greptile-apps[bot]` or `greptile-apps-staging[bot]`.
+
+**GitLab:**
+
+**1. MR description (body):**
+```bash
+glab mr view <MR_IID> --output json | jq -r '.description'
+```
+
+**2. MR notes (comments):**
+```bash
+glab api "projects/:fullpath/merge_requests/<MR_IID>/notes"
+```
+
+Filter for notes from the Greptile bot user (check the `author.username` field — the exact username may vary per installation; verify on first run).
+
+For both platforms, parse the text for:
 - **Confidence score**: a pattern like `3/5` or `5/5` (or `Confidence: 3/5`).
 - **Comment count**: Number of inline review comments noted in the summary.
 
-Use whichever source has the **most recent** score. If the PR body contains a score and the reviews list is empty or has no Greptile entry, the PR body score is authoritative.
+Use whichever source has the **most recent** score.
 
 Also fetch all unresolved inline comments:
 
+**GitHub:**
 ```bash
 gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments
 ```
 
-Filter to comments from Greptile that are on the latest commit.
+**GitLab:**
+```bash
+glab api "projects/:fullpath/merge_requests/<MR_IID>/discussions"
+```
+
+Filter to `DiffNote` type discussions (`notes[0].type == "DiffNote"`) from Greptile that are on the latest commit and not yet resolved (`"resolved": false`).
 
 #### C. Check exit conditions
 
@@ -144,7 +243,7 @@ For each unresolved Greptile comment:
 
 #### E. Resolve threads
 
-Fetch unresolved review threads and resolve all that have been addressed (see [GraphQL reference](references/graphql-queries.md)):
+**GitHub** — fetch unresolved review threads and resolve all that have been addressed (see [GraphQL reference](references/graphql-queries.md)):
 
 ```bash
 gh api graphql -f query='
@@ -176,6 +275,22 @@ mutation {
 }'
 ```
 
+**GitLab** — fetch unresolved discussions and resolve each one (see [GitLab API reference](references/gitlab-api.md)):
+
+```bash
+glab api "projects/:fullpath/merge_requests/<MR_IID>/discussions?per_page=100"
+```
+
+Filter for `"resolved": false` discussions. Then resolve each by its `id`:
+
+```bash
+glab api --method PUT \
+  "projects/:fullpath/merge_requests/<MR_IID>/discussions/<DISCUSSION_ID>" \
+  --field resolved=true
+```
+
+Repeat for each unresolved discussion ID. (GitLab has no batch resolution — loop through each one.)
+
 #### F. Commit and push
 
 ```bash
@@ -198,6 +313,7 @@ After exiting the loop, summarize:
 
 | Field              | Value      |
 | ------------------ | ---------- |
+| Platform           | GitHub / GitLab |
 | Iterations         | N          |
 | Final confidence   | X/5        |
 | Comments resolved  | N          |
@@ -209,6 +325,7 @@ If the loop exited due to max iterations, list any remaining unresolved comments
 
 ```
 Greploop complete.
+  Platform:      GitHub
   Iterations:    2
   Confidence:    5/5
   Resolved:      7 comments
@@ -219,6 +336,7 @@ If not fully resolved:
 
 ```
 Greploop stopped after 5 iterations.
+  Platform:      GitLab
   Confidence:    4/5
   Resolved:      12 comments
   Remaining:     2

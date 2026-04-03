@@ -1,13 +1,24 @@
 # greptile skills
 
-[Agent Skills](https://agentskills.io) for automated PR review workflows. Requires `git` + `gh` CLI.
+[Agent Skills](https://agentskills.io) for automated PR review workflows. Supports GitHub and GitLab. Requires `git` + `gh` CLI (GitHub) or `glab` CLI (GitLab).
 
 ## Skills
 
 | Skill | Description |
 |-------|-------------|
-| [`check-pr`](check-pr/) | Check a PR for unresolved comments, failing checks, incomplete description. Fix and resolve. |
+| [`check-pr`](check-pr/) | Check a PR/MR for unresolved comments, failing checks, incomplete description. Fix and resolve. |
 | [`greploop`](greploop/) | Loop: trigger Greptile review, fix comments, re-review — until 5/5 confidence and zero comments. |
+
+Both skills auto-detect the platform (GitHub or GitLab) from the git remote URL.
+
+## Requirements
+
+| Platform | CLI tool | Install |
+|----------|----------|---------|
+| GitHub | `gh` | [cli.github.com](https://cli.github.com) |
+| GitLab | `glab` | [gitlab.com/gitlab-org/cli](https://gitlab.com/gitlab-org/cli) |
+
+Authenticate before use: `gh auth login` or `glab auth login`.
 
 ## Install
 
@@ -30,7 +41,9 @@ Claude Code discovers skills by looking for `SKILL.md` files at `~/.claude/skill
 
 ## Usage
 
-Invoke by name in your agent (e.g. `/check-pr 123` or `/greploop`). If no PR number is given, both skills auto-detect the PR for the current branch.
+Invoke by name in your agent (e.g. `/check-pr 123` or `/greploop`). If no PR/MR number is given, both skills auto-detect the PR/MR for the current branch.
+
+For self-hosted GitLab instances whose hostname doesn't contain "gitlab", pass `--vcs gitlab` explicitly.
 
 ## License
 
