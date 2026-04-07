@@ -1,44 +1,49 @@
 ---
 name: greploop
 description: >
-  Iteratively improves a PR (GitHub) or MR (GitLab) until Greptile gives it a 5/5 confidence
-  score with zero unresolved comments. Triggers Greptile review, fixes all actionable comments,
-  pushes, re-triggers review, and repeats. Use when the user wants to fully optimize a PR/MR
-  against Greptile's code review standards.
+  Iteratively improves a PR (GitHub), MR (GitLab), or shelved changelist (Perforce) until Greptile
+  gives it a 5/5 confidence score with zero unresolved comments. Triggers Greptile review, fixes all
+  actionable comments, pushes/re-shelves, re-triggers review, and repeats. Use when the user wants to
+  fully optimize a PR/MR/CL against Greptile's code review standards.
 license: MIT
-compatibility: Requires git, gh (GitHub CLI) or glab (GitLab CLI) authenticated, and Greptile installed on the repo.
+compatibility: Requires git, gh (GitHub CLI) or glab (GitLab CLI) authenticated, and Greptile installed on the repo. For Perforce, requires p4 CLI authenticated.
 metadata:
   author: greptileai
-  version: "1.1"
-allowed-tools: Bash(gh:*) Bash(glab:*) Bash(git:*)
+  version: "1.2"
+allowed-tools: Bash(gh:*) Bash(glab:*) Bash(git:*) Bash(p4:*)
 ---
 
 # Greploop
 
-Iteratively fix a PR/MR until Greptile gives a perfect review: 5/5 confidence, zero unresolved comments.
+Iteratively fix a PR/MR/CL until Greptile gives a perfect review: 5/5 confidence, zero unresolved comments.
 
 ## Inputs
 
-- **PR/MR number** (optional): If not provided, detect the PR/MR for the current branch.
+- **PR/MR/CL number** (optional): If not provided, detect the PR/MR for the current branch, or the default pending changelist for p4.
 
 ## Instructions
 
 ### 0. Detect platform
 
-Inspect the git remote URL to determine whether this is a GitHub or GitLab repository:
+First check for Perforce, then fall back to git remote detection:
 
 ```bash
-REMOTE_URL=$(git remote get-url origin)
-if echo "$REMOTE_URL" | grep -qi "gitlab"; then
-  VCS="gitlab"
+# Check for Perforce environment
+if p4 info >/dev/null 2>&1; then
+  VCS="perforce"
 else
-  VCS="github"
+  REMOTE_URL=$(git remote get-url origin)
+  if echo "$REMOTE_URL" | grep -qi "gitlab"; then
+    VCS="gitlab"
+  else
+    VCS="github"
+  fi
 fi
 ```
 
-For self-hosted GitLab instances whose hostname doesn't contain "gitlab", the user can override by passing `--vcs gitlab` as an input.
+For self-hosted GitLab instances whose hostname doesn't contain "gitlab", the user can override by passing `--vcs gitlab` as an input. For Perforce, pass `--vcs perforce`.
 
-### 1. Identify the PR/MR
+### 1. Identify the PR/MR/CL
 
 **GitHub:**
 ```bash
@@ -52,9 +57,21 @@ glab mr view --output json | jq '{iid: .iid, branch: .source_branch}'
 
 Switch to the PR/MR branch if not already on it.
 
+**Perforce:**
+```bash
+# List pending changelists for current user/client
+p4 changes -s pending -u $P4USER -c $P4CLIENT
+
+# Describe a specific CL
+p4 describe -s <CL_NUMBER>
+```
+
+Ensure the correct workspace (`p4 client`) is set before proceeding.
+
 Key field differences:
 - GitHub: `number`, `headRefName`, `headRefOid`
 - GitLab: `iid`, `source_branch`, `sha`
+- Perforce: changelist number, `P4CLIENT`, shelved files
 
 ### 2. Loop
 
@@ -62,13 +79,20 @@ Repeat the following cycle. **Max 5 iterations** to avoid runaway loops.
 
 #### A. Trigger Greptile review
 
-Push the latest changes (if any):
+Push/shelve the latest changes (if any):
 
+**GitHub/GitLab:**
 ```bash
 git push
 ```
 
-Wait for checks to start after push:
+**Perforce:**
+```bash
+# Re-shelve to update the shelved files for review
+p4 shelve -f -c <CL_NUMBER>
+```
+
+Wait for checks to start after push/shelve:
 
 ```bash
 sleep 5
@@ -135,6 +159,8 @@ if [ "$GREPTILE_RUNNING" = "0" ]; then
 fi
 ```
 
+**Perforce** — Perforce does not have native check runs. If Greptile is integrated via a webhook triggered on `p4 shelve`, wait for it to process. Check your Greptile installation's webhook endpoint or dashboard for the review status. Poll by re-fetching the Greptile review comment on the CL until a score appears.
+
 Then poll for the Greptile pipeline job to complete (see [GitLab API reference](references/gitlab-api.md)):
 
 ```bash
@@ -175,7 +201,7 @@ done
 
 #### B. Fetch Greptile review results
 
-Greptile may surface its score in two places — check **both**:
+Greptile may surface its score in two places — check **both** (three for Perforce):
 
 **GitHub:**
 
@@ -205,7 +231,21 @@ glab api "projects/:fullpath/merge_requests/<MR_IID>/notes"
 
 Filter for notes from the Greptile bot user (check the `author.username` field — the exact username may vary per installation; verify on first run).
 
-For both platforms, parse the text for:
+**Perforce:**
+
+**1. CL description:**
+```bash
+p4 describe -s <CL_NUMBER>
+```
+Check the description field for a Greptile-appended score block.
+
+**2. CL comments / review notes:**
+```bash
+p4 review -c <CL_NUMBER>
+```
+Look for comments from the Greptile bot user. The exact mechanism depends on your Greptile installation (it may post via a review tool like Swarm or directly via `p4 review`).
+
+For all platforms, parse the text for:
 - **Confidence score**: a pattern like `3/5` or `5/5` (or `Confidence: 3/5`).
 - **Comment count**: Number of inline review comments noted in the summary.
 
@@ -224,6 +264,14 @@ glab api "projects/:fullpath/merge_requests/<MR_IID>/discussions"
 ```
 
 Filter to `DiffNote` type discussions (`notes[0].type == "DiffNote"`) from Greptile that are on the latest commit and not yet resolved (`"resolved": false`).
+
+**Perforce:**
+```bash
+# Fetch inline diff comments from Greptile bot on the shelved CL
+p4 review -c <CL_NUMBER>
+```
+
+Filter to comments from the Greptile bot user that have not been marked as resolved/addressed.
 
 #### C. Check exit conditions
 
@@ -291,15 +339,22 @@ glab api --method PUT \
 
 Repeat for each unresolved discussion ID. (GitLab has no batch resolution — loop through each one.)
 
-#### F. Commit and push
+#### F. Commit and push / re-shelve
 
+**GitHub/GitLab:**
 ```bash
 git add -A
 git commit -m "address greptile review feedback (greploop iteration N)"
 git push
 ```
 
-Wait for checks to start after push:
+**Perforce:**
+```bash
+# Stage changes back into the CL and re-shelve for the next review round
+p4 shelve -f -c <CL_NUMBER>
+```
+
+Wait for checks to start after push/shelve:
 
 ```bash
 sleep 5
@@ -313,7 +368,7 @@ After exiting the loop, summarize:
 
 | Field              | Value      |
 | ------------------ | ---------- |
-| Platform           | GitHub / GitLab |
+| Platform           | GitHub / GitLab / Perforce |
 | Iterations         | N          |
 | Final confidence   | X/5        |
 | Comments resolved  | N          |
@@ -344,4 +399,16 @@ Greploop stopped after 5 iterations.
 Remaining issues:
   - src/auth.ts:45 — "Consider rate limiting this endpoint"
   - src/db.ts:112 — "Missing index on user_id column"
+```
+
+**Perforce example:**
+
+```
+Greploop complete.
+  Platform:      Perforce
+  Changelist:    12345
+  Iterations:    3
+  Confidence:    5/5
+  Resolved:      9 comments
+  Remaining:     0
 ```

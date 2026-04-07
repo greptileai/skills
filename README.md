@@ -1,15 +1,15 @@
 # greptile skills
 
-[Agent Skills](https://agentskills.io) for automated PR review workflows. Supports GitHub and GitLab. Requires `git` + `gh` CLI (GitHub) or `glab` CLI (GitLab).
+[Agent Skills](https://agentskills.io) for automated PR review workflows. Supports GitHub, GitLab, and Perforce. Requires `git` + `gh` CLI (GitHub), `glab` CLI (GitLab), or `p4` CLI (Perforce).
 
 ## Skills
 
 | Skill | Description |
 |-------|-------------|
-| [`check-pr`](check-pr/) | Check a PR/MR for unresolved comments, failing checks, incomplete description. Fix and resolve. |
+| [`check-pr`](check-pr/) | Check a PR/MR/CL for unresolved comments, failing checks, incomplete description. Fix and resolve. |
 | [`greploop`](greploop/) | Loop: trigger Greptile review, fix comments, re-review — until 5/5 confidence and zero comments. |
 
-Both skills auto-detect the platform (GitHub or GitLab) from the git remote URL.
+Both skills auto-detect the platform (GitHub, GitLab, or Perforce) from the environment.
 
 ## Requirements
 
@@ -17,8 +17,9 @@ Both skills auto-detect the platform (GitHub or GitLab) from the git remote URL.
 |----------|----------|---------|
 | GitHub | `gh` | [cli.github.com](https://cli.github.com) |
 | GitLab | `glab` | [gitlab.com/gitlab-org/cli](https://gitlab.com/gitlab-org/cli) |
+| Perforce | `p4` | [perforce.com/downloads](https://www.perforce.com/downloads/helix-command-line-client-p4) |
 
-Authenticate before use: `gh auth login` or `glab auth login`.
+Authenticate before use: `gh auth login`, `glab auth login`, or configure `P4PORT`/`P4USER`/`P4CLIENT` for Perforce.
 
 ## Install
 
@@ -41,9 +42,9 @@ Claude Code discovers skills by looking for `SKILL.md` files at `~/.claude/skill
 
 ## Usage
 
-Invoke by name in your agent (e.g. `/check-pr 123` or `/greploop`). If no PR/MR number is given, both skills auto-detect the PR/MR for the current branch.
+Invoke by name in your agent (e.g. `/check-pr 123` or `/greploop`). If no PR/MR/CL number is given, both skills auto-detect the PR/MR for the current branch, or the pending changelist for Perforce.
 
-For self-hosted GitLab instances whose hostname doesn't contain "gitlab", pass `--vcs gitlab` explicitly.
+For self-hosted GitLab instances whose hostname doesn't contain "gitlab", pass `--vcs gitlab` explicitly. For Perforce, pass `--vcs perforce` if auto-detection fails.
 
 ## License
 
