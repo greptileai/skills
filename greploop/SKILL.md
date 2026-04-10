@@ -115,31 +115,73 @@ fi
 Then poll for the Greptile check run to complete:
 
 ```bash
-HEAD_SHA=$(gh pr view <PR_NUMBER> --json headRefOid -q .headRefOid)
+for i in $(seq 1 30); do
+  STATE=$(gh pr checks <PR_NUMBER> --json name,state --jq '.[] | select(.name | test("greptile"; "i")) | .state | ascii_upcase' 2>/dev/null)
+
+  if [ "$STATE" = "SUCCESS" ]; then
+    echo "Greptile passed!"
+    break
+  elif [ "$STATE" = "FAILURE" ] || [ "$STATE" = "ERROR" ]; then
+    echo "Greptile failed ($STATE)"
+    exit 1
+  fi
+
+  echo "Waiting for Greptile... (Current state: ${STATE:-PENDING}) attempt $i"
+  sleep 30
+done
+```
+
+**GitLab** — check if Greptile is already running before posting a trigger comment:
+
+```bash
+PIPELINES=$(glab api "projects/:fullpath/merge_requests/<MR_IID>/pipelines")
+GREPTILE_RUNNING=$(echo "$PIPELINES" | jq '[.[] | select(.status == "running" or .status == "pending")] | length')
+```
+
+If no pipeline is running, post a trigger comment:
+
+```bash
+if [ "$GREPTILE_RUNNING" = "0" ]; then
+  glab mr note <MR_IID> --message "@greptile review"
+fi
+```
+
+**Perforce** — Perforce does not have native check runs. If Greptile is integrated via a webhook triggered on `p4 shelve`, wait for it to process. Check your Greptile installation's webhook endpoint or dashboard for the review status. Poll by re-fetching the Greptile review comment on the CL until a score appears.
+
+Then poll for the Greptile pipeline job to complete (see [GitLab API reference](references/gitlab-api.md)):
+
+```bash
+HEAD_SHA=$(glab mr view <MR_IID> --output json | jq -r '.sha')
 
 while true; do
-  GREPTILE_CHECK=$(gh api "repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs" \
-    --jq '.check_runs[] | select(.name | test("greptile"; "i"))' 2>/dev/null)
-  
-  if [ -z "$GREPTILE_CHECK" ]; then
-    echo "Waiting for Greptile check to appear..."
+  PIPELINES=$(glab api "projects/:fullpath/merge_requests/<MR_IID>/pipelines")
+  # Find the most recent pipeline for this SHA
+  PIPELINE_ID=$(echo "$PIPELINES" | jq -r --arg sha "$HEAD_SHA" \
+    '[.[] | select(.sha == $sha)] | sort_by(.id) | last | .id // empty')
+
+  if [ -z "$PIPELINE_ID" ]; then
+    echo "Waiting for Greptile pipeline to appear..."
     sleep 5
     continue
   fi
-  
-  STATUS=$(echo "$GREPTILE_CHECK" | jq -r '.status // "completed"')
-  CONCLUSION=$(echo "$GREPTILE_CHECK" | jq -r '.conclusion // "pending"')
-  
-  if [ "$STATUS" = "completed" ]; then
-    if [ "$CONCLUSION" = "success" ]; then
-      echo "Greptile check passed!"
-    else
-      echo "Greptile check completed with: $CONCLUSION"
-    fi
+
+  JOBS=$(glab api "projects/:fullpath/pipelines/$PIPELINE_ID/jobs")
+  GREPTILE_JOB=$(echo "$JOBS" | jq '.[] | select(.name | test("greptile"; "i"))')
+
+  if [ -z "$GREPTILE_JOB" ]; then
+    echo "Waiting for Greptile job to appear..."
+    sleep 5
+    continue
+  fi
+
+  JOB_STATUS=$(echo "$GREPTILE_JOB" | jq -r '.status')
+
+  if [ "$JOB_STATUS" = "success" ] || [ "$JOB_STATUS" = "failed" ] || [ "$JOB_STATUS" = "canceled" ]; then
+    echo "Greptile job completed with: $JOB_STATUS"
     break
   fi
-  
-  echo "Waiting for Greptile... (status: $STATUS)"
+
+  echo "Waiting for Greptile... (status: $JOB_STATUS)"
   sleep 10
 done
 ```
