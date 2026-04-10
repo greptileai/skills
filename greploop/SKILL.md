@@ -46,13 +46,11 @@ For self-hosted GitLab instances whose hostname doesn't contain "gitlab", the us
 ### 1. Identify the PR/MR/CL
 
 **GitHub:**
-
 ```bash
 gh pr view --json number,headRefName -q '{number: .number, branch: .headRefName}'
 ```
 
 **GitLab:**
-
 ```bash
 glab mr view --output json | jq '{iid: .iid, branch: .source_branch}'
 ```
@@ -60,7 +58,6 @@ glab mr view --output json | jq '{iid: .iid, branch: .source_branch}'
 Switch to the PR/MR branch if not already on it.
 
 **Perforce:**
-
 ```bash
 # List pending changelists for current user/client
 p4 changes -s pending -u $P4USER -c $P4CLIENT
@@ -72,7 +69,6 @@ p4 describe -s <CL_NUMBER>
 Ensure the correct workspace (`p4 client`) is set before proceeding.
 
 Key field differences:
-
 - GitHub: `number`, `headRefName`, `headRefOid`
 - GitLab: `iid`, `source_branch`, `sha`
 - Perforce: changelist number, `P4CLIENT`, shelved files
@@ -86,13 +82,11 @@ Repeat the following cycle. **Max 5 iterations** to avoid runaway loops.
 Push/shelve the latest changes (if any):
 
 **GitHub/GitLab:**
-
 ```bash
 git push
 ```
 
 **Perforce:**
-
 ```bash
 # Re-shelve to update the shelved files for review
 p4 shelve -f -c <CL_NUMBER>
@@ -199,13 +193,11 @@ Greptile may surface its score in two places — check **both** (three for Perfo
 **GitHub:**
 
 **1. PR description (body):**
-
 ```bash
 gh pr view <PR_NUMBER> --json body -q '.body'
 ```
 
 **2. PR reviews:**
-
 ```bash
 gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/reviews
 ```
@@ -215,13 +207,11 @@ Look for the most recent entry from `greptile-apps[bot]` or `greptile-apps-stagi
 **GitLab:**
 
 **1. MR description (body):**
-
 ```bash
 glab mr view <MR_IID> --output json | jq -r '.description'
 ```
 
 **2. MR notes (comments):**
-
 ```bash
 glab api "projects/:fullpath/merge_requests/<MR_IID>/notes"
 ```
@@ -231,23 +221,18 @@ Filter for notes from the Greptile bot user (check the `author.username` field �
 **Perforce:**
 
 **1. CL description:**
-
 ```bash
 p4 describe -s <CL_NUMBER>
 ```
-
 Check the description field for a Greptile-appended score block.
 
 **2. CL comments / review notes:**
-
 ```bash
 p4 review -c <CL_NUMBER>
 ```
-
 Look for comments from the Greptile bot user. The exact mechanism depends on your Greptile installation (it may post via a review tool like Swarm or directly via `p4 review`).
 
 For all platforms, parse the text for:
-
 - **Confidence score**: a pattern like `3/5` or `5/5` (or `Confidence: 3/5`).
 - **Comment count**: Number of inline review comments noted in the summary.
 
@@ -256,13 +241,11 @@ Use whichever source has the **most recent** score.
 Also fetch all unresolved inline comments:
 
 **GitHub:**
-
 ```bash
 gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments
 ```
 
 **GitLab:**
-
 ```bash
 glab api "projects/:fullpath/merge_requests/<MR_IID>/discussions"
 ```
@@ -270,7 +253,6 @@ glab api "projects/:fullpath/merge_requests/<MR_IID>/discussions"
 Filter to `DiffNote` type discussions (`notes[0].type == "DiffNote"`) from Greptile that are on the latest commit and not yet resolved (`"resolved": false`).
 
 **Perforce:**
-
 ```bash
 # Fetch inline diff comments from Greptile bot on the shelved CL
 p4 review -c <CL_NUMBER>
@@ -347,7 +329,6 @@ Repeat for each unresolved discussion ID. (GitLab has no batch resolution — lo
 #### F. Commit and push / re-shelve
 
 **GitHub/GitLab:**
-
 ```bash
 git add -A
 git commit -m "address greptile review feedback (greploop iteration N)"
@@ -355,7 +336,6 @@ git push
 ```
 
 **Perforce:**
-
 ```bash
 # Stage changes back into the CL and re-shelve for the next review round
 p4 shelve -f -c <CL_NUMBER>
@@ -373,13 +353,13 @@ Then go back to step **A**.
 
 After exiting the loop, summarize:
 
-| Field              | Value                      |
-| ------------------ | -------------------------- |
+| Field              | Value      |
+| ------------------ | ---------- |
 | Platform           | GitHub / GitLab / Perforce |
-| Iterations         | N                          |
-| Final confidence   | X/5                        |
-| Comments resolved  | N                          |
-| Remaining comments | N (if any)                 |
+| Iterations         | N          |
+| Final confidence   | X/5        |
+| Comments resolved  | N          |
+| Remaining comments | N (if any) |
 
 If the loop exited due to max iterations, list any remaining unresolved comments and suggest next steps.
 
