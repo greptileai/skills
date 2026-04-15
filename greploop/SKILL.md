@@ -240,7 +240,7 @@ p4 describe -s <CL_NUMBER>
 Check the description field for a Greptile-appended score block.
 
 **2. CL comments / review notes:**
-If your installation uses a review tool such as [Helix Swarm](chatgpt://generic-entity?number=0), fetch comments via its API.
+If your installation uses a review tool such as Helix Swarm, fetch comments via its API.
 
 Example (Swarm API):
 GET /api/v11/comments?topic=reviews/<REVIEW_ID>
@@ -253,8 +253,6 @@ Response fields of interest typically include:
 Filter to comments authored by the Greptile bot:
 - Prefer exact username match if known
 - Otherwise, use a heuristic where the author name contains "greptile" (case-insensitive)
-
-Note: The exact API shape and fields may vary by Swarm version.
 
 For all platforms, parse the text for:
 - **Confidence score**: a pattern like `3/5` or `5/5` (or `Confidence: 3/5`).
