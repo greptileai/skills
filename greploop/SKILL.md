@@ -240,10 +240,21 @@ p4 describe -s <CL_NUMBER>
 Check the description field for a Greptile-appended score block.
 
 **2. CL comments / review notes:**
-```bash
-p4 review -c <CL_NUMBER>
-```
-Look for comments from the Greptile bot user. The exact mechanism depends on your Greptile installation (it may post via a review tool like Swarm or directly via `p4 review`).
+If your installation uses a review tool such as [Helix Swarm](chatgpt://generic-entity?number=0), fetch comments via its API.
+
+Example (Swarm API):
+GET /api/v11/comments?topic=reviews/<REVIEW_ID>
+
+Response fields of interest typically include:
+- user (author username)
+- body (comment text)
+- flags/state indicating whether the comment is resolved
+
+Filter to comments authored by the Greptile bot:
+- Prefer exact username match if known
+- Otherwise, use a heuristic where the author name contains "greptile" (case-insensitive)
+
+Note: The exact API shape and fields may vary by Swarm version.
 
 For all platforms, parse the text for:
 - **Confidence score**: a pattern like `3/5` or `5/5` (or `Confidence: 3/5`).
@@ -266,10 +277,10 @@ glab api "projects/:fullpath/merge_requests/<MR_IID>/discussions"
 Filter to `DiffNote` type discussions (`notes[0].type == "DiffNote"`) from Greptile that are on the latest commit and not yet resolved (`"resolved": false`).
 
 **Perforce:**
-```bash
-# Fetch inline diff comments from Greptile bot on the shelved CL
-p4 review -c <CL_NUMBER>
-```
+If using Swarm:
+
+# Fetch inline diff comments for the review associated with the CL
+GET /api/v11/comments?topic=reviews/<REVIEW_ID>
 
 Filter to comments from the Greptile bot user that have not been marked as resolved/addressed.
 
