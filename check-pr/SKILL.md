@@ -10,7 +10,7 @@ license: MIT
 compatibility: Requires git and gh (GitHub CLI), glab (GitLab CLI), or p4 (Perforce CLI) installed and authenticated.
 metadata:
   author: greptileai
-  version: "1.2"
+  version: "1.3"
 allowed-tools: Bash(gh:*) Bash(glab:*) Bash(git:*) Bash(p4:*)
 ---
 
@@ -76,7 +76,10 @@ Key field differences between platforms:
 ```bash
 gh pr view <PR_NUMBER> --json title,body,state,reviews,comments,headRefName,statusCheckRollup
 gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments
+gh api --paginate "repos/{owner}/{repo}/issues/<PR_NUMBER>/comments?per_page=100"
 ```
+
+GitHub PRs are also issues, so general PR comments live on the issue comments endpoint. Greptile may edit a single general PR comment on each review cycle instead of creating a new review or comment. Always inspect the latest Greptile-authored general comment by `updated_at`, including any "Prompt to fix all with AI" section, before concluding that the PR is clear.
 
 **GitLab:**
 ```bash
@@ -147,6 +150,7 @@ Once all checks are complete, evaluate these areas:
 #### D. General Comments
 
 - Discussion comments on the PR/MR
+- For GitHub, check the issue comments endpoint and use `updated_at` to catch bot comments edited in place. Greptile's latest edited summary can contain actionable items even when there are no new inline comments.
 - Bot comments (deploy previews, etc.) — usually informational
 - **Perforce:** CL description should include a clear summary, affected files rationale, and testing notes
 

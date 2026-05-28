@@ -9,7 +9,7 @@ license: MIT
 compatibility: Requires git, gh (GitHub CLI) or glab (GitLab CLI) authenticated, and Greptile installed on the repo. For Perforce, requires p4 CLI authenticated.
 metadata:
   author: greptileai
-  version: "1.2"
+  version: "1.3"
 allowed-tools: Bash(gh:*) Bash(glab:*) Bash(git:*) Bash(p4:*)
 ---
 
@@ -201,7 +201,7 @@ done
 
 #### B. Fetch Greptile review results
 
-Greptile may surface its score in two places — check **both** (three for Perforce):
+Greptile may surface its score in several places — check **all** of the relevant sources:
 
 **GitHub:**
 
@@ -210,7 +210,14 @@ Greptile may surface its score in two places — check **both** (three for Perfo
 gh pr view <PR_NUMBER> --json body -q '.body'
 ```
 
-**2. PR reviews:**
+**2. General PR comments (issue comments):**
+```bash
+gh api --paginate "repos/{owner}/{repo}/issues/<PR_NUMBER>/comments?per_page=100"
+```
+
+Filter for Greptile-authored comments and use the body from the most recently updated comment (`updated_at`), not the most recently created comment. Greptile may edit the same general PR comment on each review cycle; parse the current body, including the "Prompt to fix all with AI" section, before deciding there are no remaining issues.
+
+**3. PR reviews:**
 ```bash
 gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/reviews
 ```
@@ -258,7 +265,7 @@ For all platforms, parse the text for:
 - **Confidence score**: a pattern like `3/5` or `5/5` (or `Confidence: 3/5`).
 - **Comment count**: Number of inline review comments noted in the summary.
 
-Use whichever source has the **most recent** score.
+Use whichever source has the **most recently updated** score. For GitHub, prefer `updated_at` from issue comments when comparing an edited Greptile summary against older review entries.
 
 Also fetch all unresolved inline comments:
 
@@ -266,6 +273,8 @@ Also fetch all unresolved inline comments:
 ```bash
 gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments
 ```
+
+Also carry forward actionable items from the latest Greptile general PR comment, especially the "Prompt to fix all with AI" section, even if the inline comment endpoint returns zero unresolved comments.
 
 **GitLab:**
 ```bash
