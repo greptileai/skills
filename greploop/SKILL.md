@@ -10,6 +10,14 @@ compatibility: Requires git, gh (GitHub CLI) or glab (GitLab CLI) authenticated,
 metadata:
   author: greptileai
   version: "1.3"
+  triggers:
+    - greploop
+    - grep.?loop
+    - loop .*greptile
+    - (fix|address) .*greptile .*comments
+    - keep .*reviewing .*until
+    - (get|reach|hit) .*5/5 .*greptile
+    - iterate .*(pr|mr|cl) .*greptile
 allowed-tools: Bash(gh:*) Bash(glab:*) Bash(git:*) Bash(p4:*)
 ---
 

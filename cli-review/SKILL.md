@@ -8,6 +8,12 @@ license: MIT
 metadata:
   author: greptileai
   version: "1.0"
+  triggers:
+    - greptile (cli )?review
+    - run greptile (on|for)? .*(branch|local|checkout)
+    - local greptile review
+    - review .*before .*(pr|opening|push)
+    - greptile feedback
 allowed-tools: Bash(git:*) Bash(greptile:*) Bash(command:*) Bash(curl:*) Bash(npm:*)
 ---
 

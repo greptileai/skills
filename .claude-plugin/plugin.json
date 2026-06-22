@@ -1,0 +1,15 @@
+{
+  "name": "greptile-skills",
+  "description": "Agent skills for automated PR/MR/CL review workflows (GitHub, GitLab, Perforce): check PRs for unresolved comments and failing checks, loop reviews to 5/5 confidence, and run local Greptile CLI reviews.",
+  "version": "1.0.0",
+  "author": {
+    "name": "greptileai"
+  },
+  "repository": "https://github.com/greptileai/skills",
+  "license": "MIT",
+  "skills": [
+    "./check-pr",
+    "./greploop",
+    "./cli-review"
+  ]
+}
