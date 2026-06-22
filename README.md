@@ -19,9 +19,9 @@
 | GitHub | `gh` | [cli.github.com](https://cli.github.com) |
 | GitLab | `glab` | [gitlab.com/gitlab-org/cli](https://gitlab.com/gitlab-org/cli) |
 | Perforce | `p4` | [perforce.com/downloads](https://www.perforce.com/downloads/helix-command-line-client-p4) |
-| Local CLI review | `greptile` | `curl -fsSL "https://greptile.com/cli/install" \| sh` |
+| Greptile | `greptile` | [greptile.com/cli](https://www.greptile.com/cli) |
 
-Authenticate before use: `gh auth login`, `glab auth login`, `greptile login`, or configure `P4PORT`/`P4USER`/`P4CLIENT` for Perforce.
+Authenticate before use: `gh auth login`, `glab auth login`, configure `P4PORT`/`P4USER`/`P4CLIENT` for Perforce, or `greptile login`.
 
 ## Install
 

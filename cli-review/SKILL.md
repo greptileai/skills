@@ -35,16 +35,16 @@ Check whether `greptile` is installed:
 command -v greptile
 ```
 
-If it is missing, do not install it automatically. Ask the user for permission, then show the installer command:
-
-```bash
-curl -fsSL "https://greptile.com/cli/install" | sh
-```
-
-If the installer is unavailable, offer the npm fallback:
+If it is missing, do not install it automatically. Ask the user for permission, then show the recommended install command:
 
 ```bash
 npm i -g greptile
+```
+
+If npm is unavailable, offer the shell installer fallback:
+
+```bash
+curl -fsSL "https://greptile.com/cli/install" | sh
 ```
 
 After installation, re-run `command -v greptile`.
