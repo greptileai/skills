@@ -48,7 +48,7 @@ Claude Code discovers skills by looking for `SKILL.md` files at `~/.claude/skill
 
 ### Pi / open-skills ecosystem
 
-Agents that use the open [`skills`](https://skills.sh) CLI (such as Pi) install directly from the repo — no cloning or symlinks needed:
+Agents that use the open [`skills`](https://skills.sh) CLI (the package manager for the [Agent Skills](https://agentskills.io) spec linked above) — such as Pi — install directly from the repo, no cloning or symlinks needed:
 
 ```bash
 # Install all three skills

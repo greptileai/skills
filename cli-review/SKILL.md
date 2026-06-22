@@ -10,7 +10,7 @@ metadata:
   version: "1.0"
   triggers:
     - greptile (cli )?review
-    - run greptile (on|for)? .*(branch|local|checkout)
+    - run greptile (on |for )?.*(branch|local|checkout)
     - local greptile review
     - review .*before .*(pr|opening|push)
     - greptile feedback
