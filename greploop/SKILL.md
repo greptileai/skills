@@ -184,16 +184,21 @@ fi
 PIPELINES=$(glab api "projects/:fullpath/merge_requests/<MR_IID>/pipelines")
 PREVIOUS_PIPELINE_ID=$(echo "$PIPELINES" | jq -r --arg sha "$HEAD_SHA" \
   '[.[] | select(.sha == $sha)] | sort_by(.id) | last | .id // empty')
-RUNNING_PIPELINE_ID=$(echo "$PIPELINES" | jq -r --arg sha "$HEAD_SHA" \
-  '[.[] | select(.sha == $sha) | select(.status == "running" or .status == "pending")] | sort_by(.id) | last | .id // empty')
+RUNNING_PIPELINE_IDS=$(echo "$PIPELINES" | jq -r --arg sha "$HEAD_SHA" \
+  '[.[] | select(.sha == $sha) | select(.status == "running" or .status == "pending")] | sort_by(.id) | reverse | .[].id')
 GREPTILE_RUNNING=0
+RUNNING_PIPELINE_ID=""
 RUNNING_JOB_ID=""
-if [ -n "$RUNNING_PIPELINE_ID" ]; then
-  RUNNING_JOBS=$(glab api "projects/:fullpath/pipelines/$RUNNING_PIPELINE_ID/jobs")
+for CANDIDATE_PIPELINE_ID in $RUNNING_PIPELINE_IDS; do
+  RUNNING_JOBS=$(glab api "projects/:fullpath/pipelines/$CANDIDATE_PIPELINE_ID/jobs")
   RUNNING_JOB_ID=$(echo "$RUNNING_JOBS" | jq -r \
     '[.[] | select(.name | test("greptile"; "i")) | select(.status == "running" or .status == "pending")] | sort_by(.id) | last | .id // empty')
-  [ -n "$RUNNING_JOB_ID" ] && GREPTILE_RUNNING=1
-fi
+  if [ -n "$RUNNING_JOB_ID" ]; then
+    RUNNING_PIPELINE_ID="$CANDIDATE_PIPELINE_ID"
+    GREPTILE_RUNNING=1
+    break
+  fi
+done
 TRIGGERED_REVIEW=false
 if [ "$GREPTILE_RUNNING" = "0" ]; then
   glab mr note <MR_IID> --message "@greptile review"
@@ -224,8 +229,18 @@ while true; do
   fi
   PIPELINES=$(glab api "projects/:fullpath/merge_requests/<MR_IID>/pipelines")
   if [ "$TRIGGERED_REVIEW" = "true" ] && [ -z "$TARGET_PIPELINE_ID" ]; then
-    TARGET_PIPELINE_ID=$(echo "$PIPELINES" | jq -r --arg sha "$HEAD_SHA" --argjson previous "${PREVIOUS_PIPELINE_ID:-0}" \
-      '[.[] | select(.sha == $sha) | select(.id > $previous)] | sort_by(.id) | first | .id // empty')
+    CANDIDATE_PIPELINE_IDS=$(echo "$PIPELINES" | jq -r --arg sha "$HEAD_SHA" --argjson previous "${PREVIOUS_PIPELINE_ID:-0}" \
+      '[.[] | select(.sha == $sha) | select(.id > $previous)] | sort_by(.id) | .[].id')
+    for CANDIDATE_PIPELINE_ID in $CANDIDATE_PIPELINE_IDS; do
+      CANDIDATE_JOBS=$(glab api "projects/:fullpath/pipelines/$CANDIDATE_PIPELINE_ID/jobs")
+      CANDIDATE_JOB_ID=$(echo "$CANDIDATE_JOBS" | jq -r \
+        '[.[] | select(.name | test("greptile"; "i"))] | sort_by(.id) | first | .id // empty')
+      if [ -n "$CANDIDATE_JOB_ID" ]; then
+        TARGET_PIPELINE_ID="$CANDIDATE_PIPELINE_ID"
+        TARGET_JOB_ID="$CANDIDATE_JOB_ID"
+        break
+      fi
+    done
   fi
   PIPELINE_ID="$TARGET_PIPELINE_ID"
   if [ -z "$PIPELINE_ID" ]; then
@@ -234,10 +249,6 @@ while true; do
     continue
   fi
   JOBS=$(glab api "projects/:fullpath/pipelines/$PIPELINE_ID/jobs")
-  if [ "$TRIGGERED_REVIEW" = "true" ] && [ -z "$TARGET_JOB_ID" ]; then
-    TARGET_JOB_ID=$(echo "$JOBS" | jq -r \
-      '[.[] | select(.name | test("greptile"; "i"))] | sort_by(.id) | first | .id // empty')
-  fi
   GREPTILE_JOB=$(echo "$JOBS" | jq --arg id "$TARGET_JOB_ID" \
     '[.[] | select((.id | tostring) == $id)] | last // empty')
   if [ -z "$GREPTILE_JOB" ]; then
@@ -299,8 +310,8 @@ glab mr view <MR_IID> --output json | jq -r --arg since "$ACTIVE_REVIEW_STARTED_
 
 **2. MR notes (comments):**
 ```bash
-glab api "projects/:fullpath/merge_requests/<MR_IID>/notes" | jq --arg since "$ACTIVE_REVIEW_STARTED_AT" \
-  '[.[] | select((.author.username // "") | test("greptile"; "i")) | select((.updated_at // .created_at // "") >= $since)]'
+glab api --paginate "projects/:fullpath/merge_requests/<MR_IID>/notes?per_page=100" | jq -s --arg since "$ACTIVE_REVIEW_STARTED_AT" \
+  'add | [.[] | select((.author.username // "") | test("greptile"; "i")) | select((.updated_at // .created_at // "") >= $since)]'
 ```
 
 Filter for notes from the Greptile bot user (check the `author.username` field — the exact username may vary per installation; verify on first run).
@@ -346,11 +357,11 @@ Also carry forward actionable items from a corroborated Greptile general PR comm
 
 **GitLab:**
 ```bash
-glab api "projects/:fullpath/merge_requests/<MR_IID>/discussions" | jq --arg sha "$HEAD_SHA" --arg since "$ACTIVE_REVIEW_STARTED_AT" \
-  '[.[] | select(.notes[0].type == "DiffNote") | select((.notes[0].author.username // "") | test("greptile"; "i")) | select(.notes[0].position.head_sha == $sha) | select((.notes[0].updated_at // .notes[0].created_at // "") >= $since) | select(.notes[0].resolved != true)]'
+glab api --paginate "projects/:fullpath/merge_requests/<MR_IID>/discussions?per_page=100" | jq -s --arg sha "$HEAD_SHA" --arg since "$ACTIVE_REVIEW_STARTED_AT" \
+  'add | [.[] | select(.notes[0].type == "DiffNote") | select((.notes[0].author.username // "") | test("greptile"; "i")) | select(.notes[0].position.head_sha == $sha) | select((.notes[0].updated_at // .notes[0].created_at // "") >= $since) | select((if has("resolved") then .resolved else .notes[0].resolved end) != true)]'
 ```
 
-Filter to `DiffNote` type discussions (`notes[0].type == "DiffNote"`) from Greptile that are on the latest commit and not yet resolved (`"resolved": false`).
+Filter to `DiffNote` type discussions (`notes[0].type == "DiffNote"`) from Greptile that are on the latest commit and not yet resolved. GitLab documents `notes[0].resolved`; the fallback also accepts installations that expose discussion-level `resolved`.
 
 **Perforce:**
 If using Swarm:
