@@ -11,6 +11,14 @@ compatibility: Requires git and gh (GitHub CLI), glab (GitLab CLI), or p4 (Perfo
 metadata:
   author: greptileai
   version: "1.3"
+  triggers:
+    - check.?(my )?(pr|mr|cl)
+    - check (the )?pull.?request
+    - review (comments|feedback) on (the )?(pr|mr)
+    - unresolved (comments|threads|review)
+    - failing (checks|ci) on (the )?(pr|mr)
+    - prepare (the )?(pr|mr|cl|change) for (merge|submit|review)
+    - address review feedback
 allowed-tools: Bash(gh:*) Bash(glab:*) Bash(git:*) Bash(p4:*)
 ---
 
