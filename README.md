@@ -48,6 +48,8 @@ Claude Code discovers skills by looking for `SKILL.md` files at `~/.claude/skill
 
 Invoke by name in your agent (e.g. `/check-pr 123`, `/cli-review`, or `/greploop`). If no PR/MR/CL number is given, `check-pr` and `greploop` auto-detect the PR/MR for the current branch, or the pending changelist for Perforce.
 
+Use `/greploop --no-commit` (or `/greploop --fix-only`) for a single review-and-fix pass that leaves its changes unstaged and uncommitted while preserving the existing index state. Fix-only mode does not push, re-shelve, or resolve remote review threads; hand the resulting changes to your normal commit and publish workflow.
+
 For self-hosted GitLab instances whose hostname doesn't contain "gitlab", pass `--vcs gitlab` explicitly. For Perforce, pass `--vcs perforce` if auto-detection fails.
 
 ## License
