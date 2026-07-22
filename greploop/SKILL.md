@@ -116,14 +116,23 @@ Then poll for the Greptile check run to complete:
 
 ```bash
 HEAD_SHA=$(gh pr view <PR_NUMBER> --json headRefOid -q .headRefOid)
+ATTEMPTS=0
+MAX_ATTEMPTS=60
+POLL_INTERVAL_SECONDS=10
 
 while true; do
+  ATTEMPTS=$((ATTEMPTS + 1))
+  if [ "$ATTEMPTS" -gt "$MAX_ATTEMPTS" ]; then
+    echo "Timed out waiting for the Greptile check run after approximately 10 minutes." >&2
+    exit 1
+  fi
+
   GREPTILE_CHECK=$(gh api "repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs" \
     --jq '.check_runs[] | select(.name | test("greptile"; "i"))' 2>/dev/null)
   
   if [ -z "$GREPTILE_CHECK" ]; then
     echo "Waiting for Greptile check to appear..."
-    sleep 5
+    sleep "$POLL_INTERVAL_SECONDS"
     continue
   fi
   
@@ -140,9 +149,11 @@ while true; do
   fi
   
   echo "Waiting for Greptile... (status: $STATUS)"
-  sleep 10
+  sleep "$POLL_INTERVAL_SECONDS"
 done
 ```
+
+If polling times out, stop the greploop workflow and report the timeout. Do not continue with stale or missing review results.
 
 **GitLab** — check if Greptile is already running before posting a trigger comment:
 
@@ -165,8 +176,17 @@ Then poll for the Greptile pipeline job to complete (see [GitLab API reference](
 
 ```bash
 HEAD_SHA=$(glab mr view <MR_IID> --output json | jq -r '.sha')
+ATTEMPTS=0
+MAX_ATTEMPTS=60
+POLL_INTERVAL_SECONDS=10
 
 while true; do
+  ATTEMPTS=$((ATTEMPTS + 1))
+  if [ "$ATTEMPTS" -gt "$MAX_ATTEMPTS" ]; then
+    echo "Timed out waiting for the Greptile pipeline job after approximately 10 minutes." >&2
+    exit 1
+  fi
+
   PIPELINES=$(glab api "projects/:fullpath/merge_requests/<MR_IID>/pipelines")
   # Find the most recent pipeline for this SHA
   PIPELINE_ID=$(echo "$PIPELINES" | jq -r --arg sha "$HEAD_SHA" \
@@ -174,7 +194,7 @@ while true; do
 
   if [ -z "$PIPELINE_ID" ]; then
     echo "Waiting for Greptile pipeline to appear..."
-    sleep 5
+    sleep "$POLL_INTERVAL_SECONDS"
     continue
   fi
 
@@ -183,7 +203,7 @@ while true; do
 
   if [ -z "$GREPTILE_JOB" ]; then
     echo "Waiting for Greptile job to appear..."
-    sleep 5
+    sleep "$POLL_INTERVAL_SECONDS"
     continue
   fi
 
@@ -195,9 +215,11 @@ while true; do
   fi
 
   echo "Waiting for Greptile... (status: $JOB_STATUS)"
-  sleep 10
+  sleep "$POLL_INTERVAL_SECONDS"
 done
 ```
+
+If polling times out, stop the greploop workflow and report the timeout. Do not continue with stale or missing review results.
 
 #### B. Fetch Greptile review results
 
