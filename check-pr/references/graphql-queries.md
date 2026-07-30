@@ -64,7 +64,7 @@ mutation {
 ## Fetch PR details (REST)
 
 ```bash
-gh pr view <PR_NUMBER> --json title,body,state,reviews,comments,headRefName,statusCheckRollup
+gh pr view <PR_NUMBER> --json title,body,state,reviews,comments,headRefName,statusCheckRollup,changedFiles
 ```
 
 ## Fetch inline review comments (REST)
