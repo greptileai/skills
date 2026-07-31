@@ -38,17 +38,24 @@ Regular user API keys are not accepted for headless CLI authentication. Do not c
 
 ### Claude Code
 
-Clone the repository, then copy the three skill directories into Claude Code's skill directory. This layout needs no symlinks.
+Clone the repository, then copy each skill file into its named Claude Code directory. This layout needs no symlinks.
 
 ```bash
 git clone https://github.com/Hassan220022/rabitloop.git ~/.local/share/rabitloop
-mkdir -p ~/.claude/skills
-cp -R ~/.local/share/rabitloop/check-pr ~/.claude/skills/check-pr
-cp -R ~/.local/share/rabitloop/cli-review ~/.claude/skills/cli-review
-cp -R ~/.local/share/rabitloop/rabbitloop ~/.claude/skills/rabbitloop
+mkdir -p ~/.claude/skills/check-pr ~/.claude/skills/cli-review ~/.claude/skills/rabbitloop
+cp -f ~/.local/share/rabitloop/check-pr/SKILL.md ~/.claude/skills/check-pr/SKILL.md
+cp -f ~/.local/share/rabitloop/cli-review/SKILL.md ~/.claude/skills/cli-review/SKILL.md
+cp -f ~/.local/share/rabitloop/rabbitloop/SKILL.md ~/.claude/skills/rabbitloop/SKILL.md
 ```
 
-Re-copy the directories after pulling updates.
+Update without changing the discovery depth:
+
+```bash
+git -C ~/.local/share/rabitloop pull --ff-only
+cp -f ~/.local/share/rabitloop/check-pr/SKILL.md ~/.claude/skills/check-pr/SKILL.md
+cp -f ~/.local/share/rabitloop/cli-review/SKILL.md ~/.claude/skills/cli-review/SKILL.md
+cp -f ~/.local/share/rabitloop/rabbitloop/SKILL.md ~/.claude/skills/rabbitloop/SKILL.md
+```
 
 ### Other Agent Skills-compatible agents
 
