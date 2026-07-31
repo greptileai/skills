@@ -40,6 +40,12 @@ skills.each do |name|
   assert(frontmatter, "missing frontmatter in #{name}/SKILL.md")
   assert(YAML.safe_load(frontmatter)["name"] == name, "frontmatter name mismatch for #{name}")
   required_sections.each { |section| assert(body.match?(/^##+ .*#{Regexp.escape(section)}/i), "#{name} lacks #{section} section") }
+
+  next unless %w[check-pr rabbitloop].include?(name)
+
+  assert(body.match?(/comments\(first: 100\) \{\s+pageInfo \{ hasNextPage endCursor \}/), "#{name} does not expose nested comment pagination")
+  assert(body.include?("node(id: $threadId)"), "#{name} does not fetch later comment pages by thread ID")
+  assert(body.include?("comments(first: 100, after: $commentCursor)"), "#{name} does not paginate nested comments")
 end
 
 assert(!(ROOT / ("grep" + "loop")).exist?, "legacy skill directory still exists")

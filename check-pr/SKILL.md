@@ -83,6 +83,7 @@ query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
           id
           isResolved
           comments(first: 100) {
+            pageInfo { hasNextPage endCursor }
             nodes {
               author { login }
               body
@@ -98,9 +99,30 @@ query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
 }
 ```
 
-Use `gh repo view --json nameWithOwner` for owner/name and pass GraphQL values as variables. Do not interpolate untrusted PR input or body text into the query.
+For every thread whose `comments.pageInfo.hasNextPage` is true, paginate its remaining comments with the thread ID and returned comment cursor:
 
-If review-thread access is denied, pagination fails, or a response is partial, report `unresolved thread state: unavailable` and the limitation. Never translate inaccessible data into zero comments.
+```graphql
+query($threadId: ID!, $commentCursor: String) {
+  node(id: $threadId) {
+    ... on PullRequestReviewThread {
+      comments(first: 100, after: $commentCursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          author { login }
+          body
+          path
+          url
+          createdAt
+        }
+      }
+    }
+  }
+}
+```
+
+Use `gh repo view --json nameWithOwner` for owner/name and pass GraphQL values as variables. Do not interpolate untrusted PR input or body text into the query. Append every nested comment page before classifying its thread; never classify from the first 100 comments alone.
+
+If outer or nested review-thread access is denied, pagination fails, returns `null`, or a response is partial, report `unresolved thread state: unavailable` and the limitation. Never translate inaccessible data into zero comments.
 
 ### 4. Classify feedback
 

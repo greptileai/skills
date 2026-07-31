@@ -95,6 +95,7 @@ query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
           id
           isResolved
           comments(first: 100) {
+            pageInfo { hasNextPage endCursor }
             nodes {
               author { login }
               body
@@ -110,7 +111,28 @@ query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
 }
 ```
 
-Use variables, not string interpolation. If thread access/pagination is unavailable, stop before edits because remaining findings cannot be verified. A thread containing any human-authored comment is human-involved and outside automatic resolution.
+For every thread whose `comments.pageInfo.hasNextPage` is true, paginate its remaining comments with the thread ID and returned comment cursor:
+
+```graphql
+query($threadId: ID!, $commentCursor: String) {
+  node(id: $threadId) {
+    ... on PullRequestReviewThread {
+      comments(first: 100, after: $commentCursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          author { login }
+          body
+          path
+          url
+          createdAt
+        }
+      }
+    }
+  }
+}
+```
+
+Use variables, not string interpolation. Append every nested comment page before classifying its thread; never classify from the first 100 comments alone. If outer or nested thread access/pagination is unavailable, returns `null`, or is partial, stop before edits because remaining findings and human involvement cannot be verified. A thread containing any human-authored comment is human-involved and outside automatic resolution.
 
 Classify unresolved CodeRabbit feedback as:
 
