@@ -1,284 +1,191 @@
 ---
 name: check-pr
-description: >
-  Checks a GitHub, GitLab, or Perforce (p4) pull request (or merge request, or shelved changelist)
-  for unresolved review comments, failing status checks, and incomplete PR descriptions. Waits for
-  pending checks to complete, categorizes issues as actionable or informational, and optionally fixes
-  and resolves them. Use when the user wants to check a PR/MR/CL, address review feedback, or prepare
-  a change for submission.
+description: Inspect an existing GitHub pull request for CodeRabbit findings, human feedback, checks, description gaps, and merge blockers without changing the PR.
 license: MIT
-compatibility: Requires git and gh (GitHub CLI), glab (GitLab CLI), or p4 (Perforce CLI) installed and authenticated.
+compatibility: Requires git, GitHub CLI (gh), and CodeRabbit CLI (cr) installed and authenticated.
 metadata:
-  author: greptileai
-  version: "1.3"
-allowed-tools: Bash(gh:*) Bash(glab:*) Bash(git:*) Bash(p4:*)
+  author: RabbitLoop maintainers
+  version: "2.0"
+allowed-tools: Bash(command:*) Bash(git:*) Bash(gh:*) Bash(cr:*)
 ---
 
 # Check PR
 
-Analyze a pull request (GitHub), merge request (GitLab), or shelved changelist (Perforce) for review comments, status checks, and description completeness, then help address any issues found.
+Produce a read-only readiness report for one existing GitHub pull request. Do not edit code or mutate GitHub state; use `/rabbitloop` when the user explicitly wants fixes and review actions.
 
-## Inputs
-
-- **PR/MR/CL number** (optional): If not provided, detect the PR/MR for the current branch, or the default pending changelist for p4.
-
-## Instructions
-
-### 0. Detect platform
-
-First check if the user is working in a Perforce depot by looking for a `.p4config` file or `P4CLIENT`/`P4PORT` environment variables:
+## Prerequisites
 
 ```bash
-# Check for Perforce environment
-if p4 info >/dev/null 2>&1; then
-  VCS="perforce"
-else
-  # Fall back to git remote detection
-  REMOTE_URL=$(git remote get-url origin)
-  if echo "$REMOTE_URL" | grep -qi "gitlab"; then
-    VCS="gitlab"
-  else
-    VCS="github"
-  fi
-fi
+command -v git
+command -v gh
+command -v cr
+git rev-parse --show-toplevel
+gh auth status
+cr auth status
 ```
 
-For self-hosted GitLab instances whose hostname doesn't contain "gitlab", the user can override by passing `--vcs gitlab` as an input. For Perforce, the user can override by passing `--vcs perforce`.
+Stop with install/authentication guidance when a check fails. Recommend `cr doctor` for CodeRabbit CLI diagnosis. Never print credentials, tokens, cookies, or full environment variables.
 
-### 1. Identify the PR/MR/CL
+## Inputs and options
 
-If a number was provided, use it. Otherwise, detect it:
+- `/check-pr <number-or-url>`: inspect that PR.
+- `/check-pr`: discover the PR for the current branch with `gh pr view --json number,url`.
+- `--bot-handle <login>`: CodeRabbit service-account login; otherwise use `RABBITLOOP_BOT_HANDLE`, then `coderabbitai`.
 
-**GitHub:**
+Reject an empty, malformed, or option-like PR identifier. Normalize the bot login for comparison by removing one leading `@` and one trailing `[bot]`, then compare case-insensitively and exactly. Do not use substring matching.
+
+If discovery finds no PR, stop and explain how to create or select one. Never create a PR without a separate explicit request.
+
+## Workflow
+
+### 1. Fetch metadata
+
+Run:
+
 ```bash
-gh pr view --json number -q .number
+gh pr view <PR> --json number,url,title,body,state,isDraft,baseRefName,headRefName,headRefOid,mergeable,mergeStateStatus,reviewDecision,latestReviews,closingIssuesReferences,updatedAt
 ```
 
-**GitLab:**
+Record the latest commit from `headRefOid`. Treat unknown mergeability as unknown, not mergeable. A closed/merged PR is report-only and not ready for new fixes.
+
+### 2. Inspect checks
+
+Capture both commands even when `gh pr checks` exits nonzero for pending/failing checks:
+
 ```bash
-glab mr view --output json | jq '.iid'
+gh pr checks <PR> --json name,state,bucket,link,workflow
+gh pr checks <PR> --required --json name,state,bucket,link,workflow
 ```
 
-**Perforce:**
+Classify each check by `bucket`: `pass`, `fail`, `pending`, `skipping`, or `cancel`. Report GitHub's underlying `state` too. Never count `pending`, `skipping`, or `cancel` as passing.
+
+The required-only response may not reveal a required check that has no run. When permissions and branch protection expose the expected required-check set, compare it with checks on `headRefOid` and report absent names as `missing`. Otherwise report `missing required checks: unknown (GitHub configuration unavailable)` rather than claiming none are missing.
+
+### 3. Fetch all review surfaces
+
+Fetch paginated formal reviews, inline comments, and top-level PR comments:
+
 ```bash
-# List pending changelists for the current user/client
-p4 changes -s pending -u $P4USER -c $P4CLIENT
+gh api --paginate "repos/{owner}/{repo}/pulls/<PR>/reviews?per_page=100"
+gh api --paginate "repos/{owner}/{repo}/pulls/<PR>/comments?per_page=100"
+gh api --paginate "repos/{owner}/{repo}/issues/<PR>/comments?per_page=100"
 ```
 
-Key field differences between platforms:
-- GitHub: `number`, `headRefName`, `headRefOid`
-- GitLab: `iid`, `source_branch`, `sha`
-- Perforce: changelist number (CL), `shelved` files for in-review CLs
+Fetch review threads with GraphQL and paginate until `hasNextPage` is false:
 
-### 2. Fetch PR/MR/CL details
-
-**GitHub:**
-```bash
-gh pr view <PR_NUMBER> --json title,body,state,reviews,comments,headRefName,statusCheckRollup
-gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments
-gh api --paginate "repos/{owner}/{repo}/issues/<PR_NUMBER>/comments?per_page=100"
-```
-
-GitHub PRs are also issues, so general PR comments live on the issue comments endpoint. Greptile may edit a single general PR comment on each review cycle instead of creating a new review or comment. Always inspect the latest Greptile-authored general comment by `updated_at`, including any "Prompt to fix all with AI" section, before concluding that the PR is clear.
-
-**GitLab:**
-```bash
-glab mr view <MR_IID> --output json
-# Fetch discussions (inline diff comments are type "DiffNote"; general comments have null type)
-glab api "projects/:fullpath/merge_requests/<MR_IID>/discussions"
-```
-
-For GitLab, paginate discussions if needed (add `?per_page=100&page=N`).
-
-**Perforce:**
-```bash
-# Get changelist description, files, and status
-p4 describe -s <CL_NUMBER>
-
-# Get shelved files (for in-review CLs)
-p4 describe -S <CL_NUMBER>
-
-# Get the diff of the shelved changelist
-p4 diff2 //...@=<CL_NUMBER> //...@=<CL_NUMBER>
-
-# List review comments (if using p4 review workflow)
-p4 review -c <CL_NUMBER>
-```
-
-Key Perforce CL fields:
-- `Change`: changelist number
-- `Status`: `pending`, `submitted`, `shelved`
-- `Description`: the CL description / commit message
-- `Files`: list of files in the CL
-
-### 3. Wait for pending checks
-
-Before analyzing, ensure all status checks have completed. If any checks are `PENDING` or `IN_PROGRESS` (GitHub) / `running` or `pending` (GitLab), poll every 30 seconds until all checks reach a terminal state.
-
-**GitHub:** poll `statusCheckRollup` from `gh pr view`.
-
-**GitLab:**
-```bash
-glab api "projects/:fullpath/merge_requests/<MR_IID>/pipelines"
-```
-Pipeline statuses: `running`, `pending`, `success`, `failed`, `canceled`, `skipped`. Poll until no pipeline has `running` or `pending` status.
-
-**Perforce:** Perforce doesn't have built-in CI checks natively. If the team uses a review tool (Swarm, etc.) or an external CI triggered by shelve events, check the relevant system. Otherwise, proceed to analysis immediately.
-
-### 4. Analyze the PR/MR
-
-Once all checks are complete, evaluate these areas:
-
-#### A. Status Checks
-
-- Are all CI checks passing?
-- If any are failing, identify which ones and the failure reason.
-
-#### B. PR/MR Description
-
-- Is the description complete and follows team conventions?
-- Are all required sections filled in?
-- Are there TODOs or placeholders that need updating?
-
-#### C. Review Comments
-
-- Inline code review comments that need addressing
-- Look for bot review comments (e.g. from `greptile-apps[bot]` on GitHub, or the Greptile bot user on GitLab, linters, etc.)
-- Human reviewer comments
-- **Perforce:** review comments from `p4 review` or external review tools
-
-#### D. General Comments
-
-- Discussion comments on the PR/MR
-- For GitHub, check the issue comments endpoint and use `updated_at` to catch bot comments edited in place. Greptile's latest edited summary can contain actionable items even when there are no new inline comments.
-- Bot comments (deploy previews, etc.) — usually informational
-- **Perforce:** CL description should include a clear summary, affected files rationale, and testing notes
-
-### 5. Categorize issues
-
-For each issue found, categorize as:
-
-| Category | Meaning |
-|---|---|
-| **Actionable** | Code changes, test improvements, or fixes needed |
-| **Informational** | Verification notes, questions, or FYIs that don't require changes |
-| **Already addressed** | Issues that appear to be resolved by subsequent commits |
-
-### 6. Report findings
-
-Present a summary table:
-
-| Area | Issue | Status | Action Needed |
-|------|-------|--------|---------------|
-| Status Checks | CI build failing | Failing | Fix type error in `src/api.ts` |
-| Review | "Add null check" — @reviewer | Actionable | Add guard clause |
-| Description | TODO placeholder in test plan | Actionable | Fill in test plan |
-| Review | "Looks good" — @teammate | Informational | None |
-
-### 7. Fix issues (if requested)
-
-If there are actionable items:
-
-1. Switch to the PR/MR's branch (git) or ensure files are open in the correct CL (Perforce) if not already.
-2. Ask the user if they want to fix the issues.
-3. If yes, make the fixes, then:
-
-**GitHub/GitLab:** commit and push:
-```bash
-git add <files>
-git commit -m "address review feedback"
-git push
-```
-
-**Perforce:** open files for edit, make changes, and re-shelve:
-```bash
-p4 edit <file>
-# make changes
-p4 shelve -f -c <CL_NUMBER>
-```
-
-### 8. Resolve review threads
-
-After addressing comments, resolve the corresponding review threads.
-
-**Perforce** — Perforce does not have a native "resolve thread" concept. Instead, mark comments as addressed by updating the CL description or by responding in the review tool being used (Swarm, etc.). If using `p4 review`:
-
-```bash
-# Mark files as reviewed after addressing feedback
-p4 review -c <CL_NUMBER>
-```
-
-**GitHub** — fetch unresolved thread IDs (paginate if needed — see [the GraphQL reference](references/graphql-queries.md)):
-
-```bash
-gh api graphql -f query='
-query($cursor: String) {
-  repository(owner: "OWNER", name: "REPO") {
-    pullRequest(number: PR_NUMBER) {
+```graphql
+query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
       reviewThreads(first: 100, after: $cursor) {
         pageInfo { hasNextPage endCursor }
         nodes {
           id
           isResolved
-          comments(first: 1) {
-            nodes { body path }
+          comments(first: 100) {
+            pageInfo { hasNextPage endCursor }
+            nodes {
+              author { login }
+              body
+              path
+              url
+              createdAt
+            }
           }
         }
       }
     }
   }
-}'
+}
 ```
 
-If `hasNextPage` is true, repeat with `-f cursor=ENDCURSOR` to get remaining threads.
+For every thread whose `comments.pageInfo.hasNextPage` is true, paginate its remaining comments with the thread ID and returned comment cursor:
 
-Then resolve threads that have been addressed or are informational:
-
-```bash
-gh api graphql -f query='
-mutation {
-  resolveReviewThread(input: {threadId: "THREAD_ID"}) {
-    thread { isResolved }
+```graphql
+query($threadId: ID!, $commentCursor: String) {
+  node(id: $threadId) {
+    ... on PullRequestReviewThread {
+      comments(first: 100, after: $commentCursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          author { login }
+          body
+          path
+          url
+          createdAt
+        }
+      }
+    }
   }
-}'
+}
 ```
 
-Batch multiple resolutions into a single mutation using aliases (`t1`, `t2`, etc.).
+Initialize `$commentCursor` from the first page's `comments.pageInfo.endCursor` and record every cursor used. While that page reports `hasNextPage: true`, request the continuation query with the thread ID and current cursor, append its `nodes`, and replace `$commentCursor` with the returned `endCursor`. Repeat until `hasNextPage` is false. If a page reports more data but its `endCursor` is null or previously seen, treat pagination as failed; never loop or classify partial data.
 
-**GitLab** — fetch unresolved discussions (see [the GitLab API reference](references/gitlab-api.md)):
+Use `gh repo view --json nameWithOwner` for owner/name and pass GraphQL values as variables. Do not interpolate untrusted PR input or body text into the query. Classify a thread only after the nested loop terminates with `hasNextPage: false`; never classify from the first 100 comments alone.
 
-```bash
-glab api "projects/:fullpath/merge_requests/<MR_IID>/discussions?per_page=100"
+If outer or nested review-thread access is denied, pagination fails, returns `null`, or a response is partial, report `unresolved thread state: unavailable` and the limitation. Never translate inaccessible data into zero comments.
+
+### 4. Classify feedback
+
+For each unresolved thread and comment:
+
+- A CodeRabbit finding must have an author whose normalized login exactly matches the configured bot handle.
+- A thread with any human-authored comment is human-involved. Report it separately and never resolve it automatically.
+- Other bot feedback is informational unless it blocks a check or requests action.
+- Preserve file/path, URL, author, and concise action. Do not invent severity when hosted feedback does not expose one explicitly.
+
+Include relevant CodeRabbit top-level comments and formal reviews, but do not treat a command acknowledgment or summary as an inline finding.
+
+### 5. Check description completeness
+
+Assess the existing body without editing it. Require meaningful content for:
+
+- what changed;
+- why it changed;
+- testing/validation;
+- risks or rollout notes when relevant;
+- a linked issue/reference when `closingIssuesReferences` or an available issue exists.
+
+Empty headings, checklists with no context, placeholders, and `TODO` are gaps. Propose a concrete revised body for missing sections, but never call `gh pr edit` unless the user separately authorizes that exact mutation.
+
+### 6. Determine readiness
+
+Merge blockers include: wrong/closed state, draft status, merge conflict or blocked merge state, failing/pending/cancelled/missing required checks, unresolved CodeRabbit findings, unresolved human feedback, incomplete description, required review missing, and unavailable critical evidence.
+
+## Safety rules
+
+- This skill is read-only: no file edits, commits, pushes, comments, replies, thread resolutions, approvals, PR edits, or merges.
+- Never resolve human-authored or human-involved threads.
+- Never claim checks pass, comments are zero, or the PR is approved without current GitHub evidence.
+- Keep private repository content to the minimum needed in the report.
+
+## Stopping and failure behavior
+
+Stop after one current-state report. Stop early for missing tools/authentication, no PR, inaccessible PR, or invalid input. When one API surface fails, continue with the others but mark the affected conclusion unknown. Do not retry indefinitely.
+
+## Final report
+
+```text
+PR #123 — <title>
+State: open, ready for review | draft | closed
+Head: <branch> @ <sha>
+
+CodeRabbit findings: <count or unknown>
+Human unresolved comments: <count or unknown>
+Checks: <pass> pass, <fail> fail, <pending> pending, <skipping> skipped, <cancel> cancelled, <missing> missing
+
+Actionable CodeRabbit findings:
+- <severity or unknown> — <file> — <finding> — Action: <specific fix> — <URL>
+
+Unresolved human feedback:
+- @<author> — <file or PR-wide> — <comment> — Decision/action: <needed response> — <URL>
+
+Checks requiring attention:
+- <name> — <failing | pending | skipped | cancelled | missing> — <state> — <URL or unavailable>
+
+Description gaps: <none or list>
+Merge blockers: <none or list>
+Readiness: ready for human merge | blocked | unknown
+Next action: <one exact action>
 ```
-
-Filter for discussions where `"resolved": false`. Collect each discussion's `id`.
-
-Resolve each discussion individually (GitLab has no batch resolution):
-
-```bash
-glab api --method PUT \
-  "projects/:fullpath/merge_requests/<MR_IID>/discussions/<DISCUSSION_ID>" \
-  --field resolved=true
-```
-
-Repeat for each unresolved discussion ID.
-
-### 9. Multiple PRs/MRs/CLs
-
-If checking a chain of PRs/MRs/CLs, process them sequentially.
-
-**Perforce** — to check multiple changelists at once:
-```bash
-p4 changes -s pending -u $P4USER -c $P4CLIENT -l
-```
-
-## Output format
-
-Summarize:
-- PR/MR/CL title or description and current state
-- Platform detected (GitHub / GitLab / Perforce)
-- Status checks summary (passing/failing/pending) — or N/A for Perforce
-- Total issues found
-- Actionable items with descriptions
-- Items that can be ignored with reasons
-- Recommended next steps

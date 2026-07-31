@@ -1,0 +1,5 @@
+{"type":"review_context","reviewType":"uncommitted","currentBranch":"example","baseBranch":"main","workingDirectory":"/workspace/example"}
+{"type":"status","phase":"analyzing","status":"reviewing"}
+{"type":"heartbeat","status":"reviewing"}
+{"type":"finding","severity":"major","fileName":"example.rb","codegenInstructions":"Validate the issue and apply the smallest safe fix.","suggestions":[]}
+{"type":"complete","status":"review_completed","findings":1,"reviewedFiles":["example.rb"]}
