@@ -150,6 +150,16 @@ Head: <branch> @ <sha>
 CodeRabbit findings: <count or unknown>
 Human unresolved comments: <count or unknown>
 Checks: <pass> pass, <fail> fail, <pending> pending, <skipping> skipped, <cancel> cancelled, <missing> missing
+
+Actionable CodeRabbit findings:
+- <severity or unknown> — <file> — <finding> — Action: <specific fix> — <URL>
+
+Unresolved human feedback:
+- @<author> — <file or PR-wide> — <comment> — Decision/action: <needed response> — <URL>
+
+Checks requiring attention:
+- <name> — <failing | pending | skipped | cancelled | missing> — <state> — <URL or unavailable>
+
 Description gaps: <none or list>
 Merge blockers: <none or list>
 Readiness: ready for human merge | blocked | unknown

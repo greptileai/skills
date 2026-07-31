@@ -122,13 +122,13 @@ Record evidence and explicit severity. False positives or intentional non-fixes 
 
 ### 3. Decide whether to request review
 
-Determine whether a CodeRabbit-authored formal review or review-thread comment exists for the current head SHA. Top-level acknowledgments alone are not a completed review.
+Determine whether a CodeRabbit-authored formal review was submitted for the current head SHA. Review-thread comments and top-level acknowledgments are activity, not proof that a review was submitted.
 
 - No review exists: request `@<bot-handle> full review`, unless `--incremental-only` was selected.
 - A prior review exists and fixes were pushed: request `@<bot-handle> review` for incremental changes.
 - Use `full review` after substantial cross-cutting changes only with `--full-review-first` or explicit user direction.
 
-Before posting, compare the latest matching top-level command time with later CodeRabbit review/thread activity. If a command is newer, treat the review as in progress or indeterminate and poll it; do not post a duplicate.
+Before posting, compare the latest matching top-level command time with later CodeRabbit formal reviews and comment activity. If a command is newer than the latest matching formal review for that head, treat the review as in progress or indeterminate and poll it; do not post a duplicate.
 
 Post commands only as new top-level PR comments:
 
@@ -141,9 +141,11 @@ Each command consumes a review allowance. In `--dry-run`, state which command wo
 
 ### 4. Poll responsibly
 
-Capture baseline IDs/timestamps before the command. Poll formal reviews, review comments/threads, and top-level comments with exponential backoff: start at 10 seconds, double after each attempt, cap each delay at 60 seconds, and stop at the configured total time.
+Capture baseline IDs/timestamps and the requested `headRefOid` before the command. Poll formal reviews, review comments/threads, and top-level comments with exponential backoff: start at 10 seconds, double after each attempt, cap each delay at 60 seconds, and stop at the configured total time.
 
-Accept only new matching-author formal review or review-thread activity after the baseline as new review output. A new top-level bot comment is activity, not a documented completion signal. CodeRabbit exposes no documented PR-side completion or in-progress API; if review output cannot be established before the bound, stop with `review timed out or completion unverifiable`. Never busy-wait, sleep indefinitely, parse a guessed completion phrase, or assume silence means success.
+Proceed only after GitHub exposes a new matching-author formal PR review whose `commit_id` equals the requested `headRefOid` and whose submission time is after the command. Re-fetch every review surface after that submitted review appears. New review-thread or top-level comments without that formal review are activity only; keep polling. If no matching submitted review appears before the bound, stop with `review timed out or delivery unverifiable` and do not edit from the possibly partial comment set.
+
+The submitted GitHub review proves only that a review artifact was delivered for that commit. CodeRabbit exposes no documented PR-side completion or in-progress API, so never infer broader completion from comment text, a quiet period, or silence. Never busy-wait, sleep indefinitely, or parse a guessed completion phrase.
 
 Tolerate transient `gh` failures by retrying only read operations within the same total time bound. Do not retry malformed input, authentication/permission failures, or a failed comment mutation automatically.
 
@@ -180,6 +182,7 @@ Success requires current evidence that:
 
 - no unresolved valid/actionable allowed-severity CodeRabbit findings remain;
 - all CodeRabbit findings have a safe recorded disposition;
+- the latest requested CodeRabbit review has a matching submitted formal review on the current `headRefOid`;
 - no unresolved human feedback requires action;
 - all required checks are present and passing, with no failing, pending, cancelled, or skipped required check;
 - merge state is not conflicting/blocked;

@@ -8,7 +8,7 @@
 - **External interfaces:** Git, GitHub CLI, CodeRabbit CLI, GitHub REST/GraphQL, and documented top-level CodeRabbit PR commands only.
 - **Safety decisions:** GitHub-only; read-only `/check-pr`; severity-gated fixes; explicit push/PR-action authorization; bounded exponential polling; no inferred review completion, thread state, required-check state, or approval.
 - **Validation:** Parsed all skill frontmatter; checked skill names against directory names; resolved local and external Markdown links; syntax-checked Bash fences; ran `git diff --check`; searched for stale branding, unsupported command names, secrets, and machine-local paths.
-- **Known limits:** CodeRabbit documents no hosted PR completion API, normal-success JSONL event schemas beyond finding fields, canonical bot handle discovery, or guaranteed approval result. Live external PR mutation was not tested.
+- **Known limits:** CodeRabbit documents no hosted PR completion API, normal-success JSONL event schemas beyond finding fields, canonical bot handle discovery, or guaranteed approval result. RabbitLoop therefore requires a submitted GitHub review on the requested head commit and treats comment-only activity as incomplete. Live external PR mutation was not tested.
 - **Follow-up:** Run `/rabbitloop <PR> --dry-run` against a disposable GitHub PR before authorizing push or PR actions.
 
 The durable knowledge-base sync could not run because neither the configured Obsidian MCP nor a local Obsidian CLI was available in this session.
