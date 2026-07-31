@@ -120,7 +120,9 @@ query($threadId: ID!, $commentCursor: String) {
 }
 ```
 
-Use `gh repo view --json nameWithOwner` for owner/name and pass GraphQL values as variables. Do not interpolate untrusted PR input or body text into the query. Append every nested comment page before classifying its thread; never classify from the first 100 comments alone.
+Initialize `$commentCursor` from the first page's `comments.pageInfo.endCursor` and record every cursor used. While that page reports `hasNextPage: true`, request the continuation query with the thread ID and current cursor, append its `nodes`, and replace `$commentCursor` with the returned `endCursor`. Repeat until `hasNextPage` is false. If a page reports more data but its `endCursor` is null or previously seen, treat pagination as failed; never loop or classify partial data.
+
+Use `gh repo view --json nameWithOwner` for owner/name and pass GraphQL values as variables. Do not interpolate untrusted PR input or body text into the query. Classify a thread only after the nested loop terminates with `hasNextPage: false`; never classify from the first 100 comments alone.
 
 If outer or nested review-thread access is denied, pagination fails, returns `null`, or a response is partial, report `unresolved thread state: unavailable` and the limitation. Never translate inaccessible data into zero comments.
 

@@ -46,6 +46,9 @@ skills.each do |name|
   assert(body.match?(/comments\(first: 100\) \{\s+pageInfo \{ hasNextPage endCursor \}/), "#{name} does not expose nested comment pagination")
   assert(body.include?("node(id: $threadId)"), "#{name} does not fetch later comment pages by thread ID")
   assert(body.include?("comments(first: 100, after: $commentCursor)"), "#{name} does not paginate nested comments")
+  assert(body.include?("Initialize `$commentCursor`"), "#{name} does not initialize nested pagination")
+  assert(body.include?("Repeat until `hasNextPage` is false"), "#{name} does not define nested pagination termination")
+  assert(body.include?("null or previously seen"), "#{name} does not reject a repeated nested cursor")
 end
 
 assert(!(ROOT / ("grep" + "loop")).exist?, "legacy skill directory still exists")

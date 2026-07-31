@@ -132,7 +132,9 @@ query($threadId: ID!, $commentCursor: String) {
 }
 ```
 
-Use variables, not string interpolation. Append every nested comment page before classifying its thread; never classify from the first 100 comments alone. If outer or nested thread access/pagination is unavailable, returns `null`, or is partial, stop before edits because remaining findings and human involvement cannot be verified. A thread containing any human-authored comment is human-involved and outside automatic resolution.
+Initialize `$commentCursor` from the first page's `comments.pageInfo.endCursor` and record every cursor used. While that page reports `hasNextPage: true`, request the continuation query with the thread ID and current cursor, append its `nodes`, and replace `$commentCursor` with the returned `endCursor`. Repeat until `hasNextPage` is false. If a page reports more data but its `endCursor` is null or previously seen, treat pagination as failed; never loop or classify partial data.
+
+Use variables, not string interpolation. Classify a thread only after the nested loop terminates with `hasNextPage: false`; never classify from the first 100 comments alone. If outer or nested thread access/pagination is unavailable, returns `null`, or is partial, stop before edits because remaining findings and human involvement cannot be verified. A thread containing any human-authored comment is human-involved and outside automatic resolution.
 
 Classify unresolved CodeRabbit feedback as:
 
