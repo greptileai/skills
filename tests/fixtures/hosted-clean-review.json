@@ -1,0 +1,29 @@
+{
+  "requestedHeadOid": "2222222222222222222222222222222222222222",
+  "command": {
+    "id": "command-1",
+    "author": "maintainer",
+    "body": "@coderabbitai review",
+    "createdAt": "2026-07-31T09:53:54Z"
+  },
+  "reply": {
+    "id": "reply-1",
+    "author": "coderabbitai",
+    "body": "Action performed: Review finished.",
+    "createdAt": "2026-07-31T09:54:04Z"
+  },
+  "check": {
+    "context": "CodeRabbit",
+    "state": "success",
+    "created_at": "2026-07-31T09:55:03Z",
+    "updated_at": "2026-07-31T09:55:09Z"
+  },
+  "summary": {
+    "id": "summary-1",
+    "author": "coderabbitai",
+    "body": "No actionable comments were generated in the recent review. Reviewing commits between 1111111111111111111111111111111111111111 and 2222222222222222222222222222222222222222.",
+    "updatedAt": "2026-07-31T09:55:10Z"
+  },
+  "formalReviews": [],
+  "laterReviewCommands": []
+}
