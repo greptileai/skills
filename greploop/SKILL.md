@@ -237,7 +237,12 @@ gh pr view <PR_NUMBER> --json body -q '.body'
 gh api --paginate "repos/{owner}/{repo}/issues/<PR_NUMBER>/comments?per_page=100"
 ```
 
-Filter for Greptile-authored comments and use the body from the most recently updated comment (`updated_at`), not the most recently created comment. Greptile may edit the same general PR comment on each review cycle; parse the current body, including the "Prompt to fix all with AI" section, before deciding there are no remaining issues.
+Filter for Greptile-authored comments and use the body from the most recently updated comment (`updated_at`), not the most recently created comment. Greptile may edit the same general PR comment on each review cycle; parse the current body, including the "Prompt to fix all with AI" section, before deciding there are no remaining issues. Keep that body in `GREPTILE_SUMMARY_BODY` — it is reused below to pull out the Greptile review UI link:
+
+```bash
+GREPTILE_SUMMARY_BODY=$(gh api --paginate --slurp "repos/{owner}/{repo}/issues/<PR_NUMBER>/comments?per_page=100" \
+  | jq -r 'add | [.[] | select(.user.login | test("greptile"; "i"))] | sort_by(.updated_at) | last | .body // empty')
+```
 
 **3. PR reviews:**
 ```bash
@@ -258,7 +263,12 @@ glab mr view <MR_IID> --output json | jq -r '.description'
 glab api "projects/:fullpath/merge_requests/<MR_IID>/notes"
 ```
 
-Filter for notes from the Greptile bot user (check the `author.username` field — the exact username may vary per installation; verify on first run).
+Filter for notes from the Greptile bot user (check the `author.username` field — the exact username may vary per installation; verify on first run). Keep the most recently updated Greptile note body in `GREPTILE_SUMMARY_BODY`:
+
+```bash
+GREPTILE_SUMMARY_BODY=$(glab api "projects/:fullpath/merge_requests/<MR_IID>/notes?per_page=100" \
+  | jq -r '[.[] | select(.author.username | test("greptile"; "i"))] | sort_by(.updated_at) | last | .body // empty')
+```
 
 **Perforce:**
 
@@ -283,6 +293,8 @@ Filter to comments authored by the Greptile bot:
 - Prefer exact username match if known
 - Otherwise, use a heuristic where the author name contains "greptile" (case-insensitive)
 
+Keep the body of the most recently updated Greptile comment in `GREPTILE_SUMMARY_BODY`.
+
 For all platforms, parse the text for:
 - **Confidence score**: a pattern like `3/5` or `5/5` (or `Confidence: 3/5`).
 - **Comment count**: Number of inline review comments noted in the summary.
@@ -304,7 +316,7 @@ Also carry forward actionable items from the latest Greptile general PR comment,
 GREPTILE_UI_URL=$(echo "$GREPTILE_SUMMARY_BODY" | grep -oE 'href="[^"]*/-/pull-requests/[^"]*"' | head -1 | sed -E 's/^href="//; s/"$//; s/[?#].*$//')
 ```
 
-`GREPTILE_SUMMARY_BODY` is the body of the latest Greptile general comment (GitHub issue comment, GitLab MR note, or Swarm comment) fetched above. The badge only appears when the review UI is enabled for the tenant, so `GREPTILE_UI_URL` may be empty — that is fine, just omit the link from the report.
+`GREPTILE_SUMMARY_BODY` is the latest Greptile summary comment body assigned in the general-comments step above (GitHub issue comment, GitLab MR note, or Swarm comment). The badge only appears when the review UI is enabled for the tenant, so `GREPTILE_UI_URL` may be empty — that is fine, just omit the link from the report.
 
 **GitLab:**
 ```bash
