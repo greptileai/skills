@@ -9,7 +9,7 @@ license: MIT
 compatibility: Requires git, gh (GitHub CLI) or glab (GitLab CLI) authenticated, and Greptile installed on the repo. For Perforce, requires p4 CLI authenticated.
 metadata:
   author: greptileai
-  version: "1.3"
+  version: "1.4"
 allowed-tools: Bash(gh:*) Bash(glab:*) Bash(git:*) Bash(p4:*)
 ---
 
@@ -298,6 +298,14 @@ gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments
 
 Also carry forward actionable items from the latest Greptile general PR comment, especially the "Prompt to fix all with AI" section, even if the inline comment endpoint returns zero unresolved comments.
 
+**Capture the Greptile review UI link.** The Greptile summary comment's confidence heading carries a "View in Greptile" badge that links to the PR's page in the Greptile review UI (`https://app.greptile.com/<tenant>/-/pull-requests/<owner>/<repo>/<number>`). Extract it from the most recently updated Greptile summary comment and keep it for the final report:
+
+```bash
+GREPTILE_UI_URL=$(echo "$GREPTILE_SUMMARY_BODY" | grep -oE 'href="[^"]*/-/pull-requests/[^"]*"' | head -1 | sed -E 's/^href="//; s/"$//; s/[?#].*$//')
+```
+
+`GREPTILE_SUMMARY_BODY` is the body of the latest Greptile general comment (GitHub issue comment, GitLab MR note, or Swarm comment) fetched above. The badge only appears when the review UI is enabled for the tenant, so `GREPTILE_UI_URL` may be empty — that is fine, just omit the link from the report.
+
 **GitLab:**
 ```bash
 glab api "projects/:fullpath/merge_requests/<MR_IID>/discussions"
@@ -413,8 +421,11 @@ After exiting the loop, summarize:
 | Final confidence   | X/5        |
 | Comments resolved  | N          |
 | Remaining comments | N (if any) |
+| Greptile review UI | Link to the PR in the Greptile review UI, if available |
 
 If the loop exited due to max iterations, list any remaining unresolved comments and suggest next steps.
+
+Always end the report with the link to the PR in the Greptile review UI (`GREPTILE_UI_URL` from step B) when one was found, so the user can open the full review there. Omit the `Greptile:` line if no link was available.
 
 ## Output format
 
@@ -425,6 +436,7 @@ Greploop complete.
   Confidence:    5/5
   Resolved:      7 comments
   Remaining:     0
+  Greptile:      https://app.greptile.com/acme/-/pull-requests/acme/api/123
 ```
 
 If not fully resolved:
@@ -435,6 +447,7 @@ Greploop stopped after 5 iterations.
   Confidence:    4/5
   Resolved:      12 comments
   Remaining:     2
+  Greptile:      https://app.greptile.com/acme/-/pull-requests/acme/api/456
 
 Remaining issues:
   - src/auth.ts:45 — "Consider rate limiting this endpoint"
