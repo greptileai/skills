@@ -266,8 +266,8 @@ glab api "projects/:fullpath/merge_requests/<MR_IID>/notes"
 Filter for notes from the Greptile bot user (check the `author.username` field — the exact username may vary per installation; verify on first run). Keep the most recently updated Greptile note body in `GREPTILE_SUMMARY_BODY`:
 
 ```bash
-GREPTILE_SUMMARY_BODY=$(glab api "projects/:fullpath/merge_requests/<MR_IID>/notes?per_page=100" \
-  | jq -r '[.[] | select(.author.username | test("greptile"; "i"))] | sort_by(.updated_at) | last | .body // empty')
+GREPTILE_SUMMARY_BODY=$(glab api --paginate "projects/:fullpath/merge_requests/<MR_IID>/notes?per_page=100" \
+  | jq -rs 'add | [.[] | select(.author.username | test("greptile"; "i"))] | sort_by(.updated_at) | last | .body // empty')
 ```
 
 **Perforce:**
