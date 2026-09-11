@@ -9,7 +9,7 @@ license: MIT
 compatibility: Requires git, gh (GitHub CLI) or glab (GitLab CLI) authenticated, and Greptile installed on the repo. For Perforce, requires p4 CLI authenticated.
 metadata:
   author: greptileai
-  version: "1.3"
+  version: "1.4"
 allowed-tools: Bash(gh:*) Bash(glab:*) Bash(git:*) Bash(p4:*)
 ---
 
@@ -237,7 +237,12 @@ gh pr view <PR_NUMBER> --json body -q '.body'
 gh api --paginate "repos/{owner}/{repo}/issues/<PR_NUMBER>/comments?per_page=100"
 ```
 
-Filter for Greptile-authored comments and use the body from the most recently updated comment (`updated_at`), not the most recently created comment. Greptile may edit the same general PR comment on each review cycle; parse the current body, including the "Prompt to fix all with AI" section, before deciding there are no remaining issues.
+Filter for Greptile-authored comments and use the body from the most recently updated comment (`updated_at`), not the most recently created comment. Greptile may edit the same general PR comment on each review cycle; parse the current body, including the "Prompt to fix all with AI" section, before deciding there are no remaining issues. Keep that body in `GREPTILE_SUMMARY_BODY` — it is reused below to pull out the Greptile review UI link:
+
+```bash
+GREPTILE_SUMMARY_BODY=$(gh api --paginate --slurp "repos/{owner}/{repo}/issues/<PR_NUMBER>/comments?per_page=100" \
+  | jq -r 'add | [.[] | select(.user.login | test("greptile"; "i"))] | sort_by(.updated_at) | last | .body // empty')
+```
 
 **3. PR reviews:**
 ```bash
@@ -258,7 +263,12 @@ glab mr view <MR_IID> --output json | jq -r '.description'
 glab api "projects/:fullpath/merge_requests/<MR_IID>/notes"
 ```
 
-Filter for notes from the Greptile bot user (check the `author.username` field — the exact username may vary per installation; verify on first run).
+Filter for notes from the Greptile bot user (check the `author.username` field — the exact username may vary per installation; verify on first run). Keep the most recently updated Greptile note body in `GREPTILE_SUMMARY_BODY`:
+
+```bash
+GREPTILE_SUMMARY_BODY=$(glab api --paginate "projects/:fullpath/merge_requests/<MR_IID>/notes?per_page=100" \
+  | jq -rs 'add | [.[] | select(.author.username | test("greptile"; "i"))] | sort_by(.updated_at) | last | .body // empty')
+```
 
 **Perforce:**
 
@@ -283,6 +293,8 @@ Filter to comments authored by the Greptile bot:
 - Prefer exact username match if known
 - Otherwise, use a heuristic where the author name contains "greptile" (case-insensitive)
 
+Keep the body of the most recently updated Greptile comment in `GREPTILE_SUMMARY_BODY`.
+
 For all platforms, parse the text for:
 - **Confidence score**: a pattern like `3/5` or `5/5` (or `Confidence: 3/5`).
 - **Comment count**: Number of inline review comments noted in the summary.
@@ -297,6 +309,14 @@ gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments
 ```
 
 Also carry forward actionable items from the latest Greptile general PR comment, especially the "Prompt to fix all with AI" section, even if the inline comment endpoint returns zero unresolved comments.
+
+**Capture the Greptile review UI link.** The Greptile summary comment's confidence heading carries a "View in Greptile" badge that links to the PR's page in the Greptile review UI (`https://app.greptile.com/<tenant>/-/pull-requests/<owner>/<repo>/<number>`). Extract it from the most recently updated Greptile summary comment and keep it for the final report:
+
+```bash
+GREPTILE_UI_URL=$(echo "$GREPTILE_SUMMARY_BODY" | grep -oE 'href="[^"]*/-/pull-requests/[^"]*"' | head -1 | sed -E 's/^href="//; s/"$//; s/[?#].*$//')
+```
+
+`GREPTILE_SUMMARY_BODY` is the latest Greptile summary comment body assigned in the general-comments step above (GitHub issue comment, GitLab MR note, or Swarm comment). The badge only appears when the review UI is enabled for the tenant, so `GREPTILE_UI_URL` may be empty — that is fine, just omit the link from the report.
 
 **GitLab:**
 ```bash
@@ -413,8 +433,11 @@ After exiting the loop, summarize:
 | Final confidence   | X/5        |
 | Comments resolved  | N          |
 | Remaining comments | N (if any) |
+| Greptile review UI | Link to the PR in the Greptile review UI, if available |
 
 If the loop exited due to max iterations, list any remaining unresolved comments and suggest next steps.
+
+Always end the report with the link to the PR in the Greptile review UI (`GREPTILE_UI_URL` from step B) when one was found, so the user can open the full review there. Omit the `Greptile:` line if no link was available.
 
 ## Output format
 
@@ -425,6 +448,7 @@ Greploop complete.
   Confidence:    5/5
   Resolved:      7 comments
   Remaining:     0
+  Greptile:      https://app.greptile.com/acme/-/pull-requests/acme/api/123
 ```
 
 If not fully resolved:
@@ -435,6 +459,7 @@ Greploop stopped after 5 iterations.
   Confidence:    4/5
   Resolved:      12 comments
   Remaining:     2
+  Greptile:      https://app.greptile.com/acme/-/pull-requests/acme/api/456
 
 Remaining issues:
   - src/auth.ts:45 — "Consider rate limiting this endpoint"
