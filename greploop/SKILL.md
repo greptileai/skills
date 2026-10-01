@@ -107,7 +107,7 @@ sleep 5
 GREPTILE_STATE=$(gh pr checks <PR_NUMBER> --json name,state | jq -r '.[] | select(.name | test("greptile"; "i")) | .state')
 ```
 
-If Greptile is **not** already running (`PENDING` or `IN_PROGRESS`), request a fresh review:
+If Greptile is **not** already running (`PENDING` or `IN_PROGRESS`), request a fresh review (with `--no-commit`/`--fix-only`, only if no Greptile review exists yet for the current HEAD -- otherwise use the existing one):
 
 ```bash
 if [ "$GREPTILE_STATE" != "PENDING" ] && [ "$GREPTILE_STATE" != "IN_PROGRESS" ]; then
@@ -334,7 +334,7 @@ For each unresolved Greptile comment:
 
 #### E. Resolve threads
 
-**Skip this step with `--no-commit`/`--fix-only`.** The fix only exists in the working tree at this point -- resolving a remote thread now would mark it resolved before the fix is actually pushed. Resolve threads on a normal (non-fix-only) run, after the fix has been committed and pushed.
+**Skip this step with `--no-commit`/`--fix-only`.** The fix only exists in the working tree at this point -- resolving a remote thread now would mark it resolved before the fix is actually pushed. A normal (non-fix-only) run resolves the threads here, as before.
 
 **GitHub** — fetch unresolved review threads and resolve all that have been addressed (see [GraphQL reference](references/graphql-queries.md)):
 
@@ -467,7 +467,7 @@ Greploop fix-only pass complete.
   Platform:      GitHub
   Confidence:    3/5 (before fixes)
   Fixed in tree: 4 comments
-  Remaining:     0
+  Remaining:     4
 
 Fixes applied to the working tree. Nothing was staged, committed, pushed, or
 resolved remotely -- the 4 threads above stay open on GitHub/GitLab until you
