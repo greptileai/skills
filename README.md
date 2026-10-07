@@ -55,12 +55,7 @@ For self-hosted GitLab instances whose hostname doesn't contain "gitlab", pass `
 
 ## Plugins
 
-The repository root is also a plugin for Claude Code and Codex. The plugin bundles the three skills above, the Greptile MCP server, and the Greptile CLI.
-
-- the **Greptile MCP server**, for reading and resolving review results, and for searching your organization's knowledge base and coding patterns
-- the **Greptile CLI**, for dispatching a review of your working branch before a pull request exists
-
-They are two ends of one pipeline. The CLI dispatches reviews; the MCP server reads them back — both the ones the CLI dispatched (`source: "headless"`) and the ones Greptile ran on your pull requests (`source: "pr"`).
+The repository root is also a plugin for Claude Code and Codex. Besides the three skills above, it bundles the **Greptile MCP server**, for reading and resolving review results and searching your organization's knowledge base and coding patterns, and the **Greptile CLI**, which `cli-review` uses to review your working branch before a pull request exists. The MCP server reads back both CLI reviews (`source: "headless"`) and pull request reviews (`source: "pr"`).
 
 ### Claude Code
 
