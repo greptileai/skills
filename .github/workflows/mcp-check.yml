@@ -58,8 +58,11 @@ jobs:
             echo "::error::$config does not declare a \"greptile\" server object in either the bare or mcpServers shape."
             exit 1
           fi
-          if ! jq -e '.greptile.url | type == "string" and startswith("https://")' "$RUNNER_TEMP/servers.json" >/dev/null; then
-            echo "::error::$config does not declare an https url for the greptile server."
+          # Pin the server before trusting its replies below: a pull request
+          # pointing the plugins at another host could otherwise serve the
+          # expected challenge and tool list and pass.
+          if ! jq -e '.greptile.url == "https://api.greptile.com/mcp"' "$RUNNER_TEMP/servers.json" >/dev/null; then
+            echo "::error::$config must point the greptile server at https://api.greptile.com/mcp."
             exit 1
           fi
           jq -r '.greptile.url' "$RUNNER_TEMP/servers.json" > "$RUNNER_TEMP/url.txt"
