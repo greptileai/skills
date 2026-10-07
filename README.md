@@ -167,7 +167,8 @@ To turn it off, any one of these is enough:
 
 ```sh
 export GREPTILE_TELEMETRY_DISABLED=1   # or DO_NOT_TRACK=1
-greptile settings set telemetry false
+greptile settings set telemetry false  # standalone CLI
+node "<plugin-root>/scripts/greptile.mjs" settings set telemetry false  # bundled CLI
 ```
 
 `CI=1` also disables it, and a CLI pointed at a self-hosted Greptile sends no
