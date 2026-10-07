@@ -115,8 +115,16 @@ jobs:
             echo "::error::$f must invoke the vendored bundle as GREPTILE_NO_AUTO_INSTALL=1 GREPTILE_NO_UPDATE_CHECK=1 node \"\${CLAUDE_PLUGIN_ROOT}/scripts/greptile.mjs\"."
             exit 1
           fi
-          if ! grep -qF 'review --agent' <<<"$block"; then
-            echo "::error::$f must run reviews with --agent, which never prompts or opens a browser."
+          # Each CLI call must go through the <greptile> placeholder, which
+          # step 2 resolves to the bundle when one exists. A block calling a
+          # concrete `greptile` or the bundle path directly would pass the
+          # checks above while bypassing that resolution.
+          if grep -qE '(^|[[:space:]/])(greptile|greptile\.mjs")[[:space:]]+(whoami|login|review)' <<<"$block"; then
+            echo "::error::$f calls a CLI directly. Run whoami, login, and review as <greptile> so step 2's resolution applies."
+            exit 1
+          fi
+          if ! grep -qxF '<greptile> review --agent' <<<"$block"; then
+            echo "::error::$f must run reviews as <greptile> review --agent, which never prompts or opens a browser."
             exit 1
           fi
           echo "cli-review invokes the vendored bundle with downloads suppressed."
