@@ -28,10 +28,16 @@ Authenticate before use: `gh auth login`, `glab auth login`, configure `P4PORT`/
 ### Recommended: skills CLI
 
 ```bash
-npx skills add greptileai/skills
+npx skills add greptileai/skills -g
 ```
 
-This uses the [skills CLI](https://skills.sh) to install all three skills for your agent.
+This uses the [skills CLI](https://skills.sh) to install all three skills globally for your agent.
+
+To install into a single project instead of globally, run this from the project root:
+
+```bash
+npx skills add greptileai/skills
+```
 
 ### Alternative: git clone + symlinks
 
@@ -41,15 +47,6 @@ cd ~/.claude/skills
 ln -sfn greptile/skills/check-pr check-pr
 ln -sfn greptile/skills/cli-review cli-review
 ln -sfn greptile/skills/greploop greploop
-```
-
-Or as a submodule:
-
-```bash
-git submodule add https://github.com/greptileai/skills.git .skills/greptile
-ln -sfn greptile/skills/check-pr .skills/check-pr
-ln -sfn greptile/skills/cli-review .skills/cli-review
-ln -sfn greptile/skills/greploop .skills/greploop
 ```
 
 Claude Code discovers skills by looking for `SKILL.md` files at `~/.claude/skills/<skill-name>/SKILL.md`. Since this is a multi-skill repo, symlinks are needed to expose each sub-skill at the expected depth.
