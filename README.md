@@ -38,18 +38,18 @@ This uses the [skills CLI](https://skills.sh) to install all three skills for yo
 ```bash
 git clone https://github.com/greptileai/skills.git ~/.claude/skills/greptile
 cd ~/.claude/skills
-ln -s greptile/skills/check-pr check-pr
-ln -s greptile/skills/cli-review cli-review
-ln -s greptile/skills/greploop greploop
+ln -sfn greptile/skills/check-pr check-pr
+ln -sfn greptile/skills/cli-review cli-review
+ln -sfn greptile/skills/greploop greploop
 ```
 
 Or as a submodule:
 
 ```bash
 git submodule add https://github.com/greptileai/skills.git .skills/greptile
-ln -s greptile/skills/check-pr .skills/check-pr
-ln -s greptile/skills/cli-review .skills/cli-review
-ln -s greptile/skills/greploop .skills/greploop
+ln -sfn greptile/skills/check-pr .skills/check-pr
+ln -sfn greptile/skills/cli-review .skills/cli-review
+ln -sfn greptile/skills/greploop .skills/greploop
 ```
 
 Claude Code discovers skills by looking for `SKILL.md` files at `~/.claude/skills/<skill-name>/SKILL.md`. Since this is a multi-skill repo, symlinks are needed to expose each sub-skill at the expected depth.
