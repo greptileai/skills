@@ -72,7 +72,7 @@ If the CLI reports that authentication is missing, tell the user a browser windo
 <greptile> login
 ```
 
-Allow up to ten minutes for the browser round-trip; give the shell call a 600000 ms timeout, or keep polling a running session until it finishes. The CLI keeps its credentials in `~/.greptile/auth.json`, shared by the bundled and standalone CLIs. The Greptile MCP server authenticates separately, through the agent's own MCP settings; signing in to one does not sign in to the other.
+Allow up to ten minutes for the browser round-trip; give the shell call a 600000 ms timeout, or keep polling a running session until it finishes. The Greptile MCP server authenticates separately, through the agent's own MCP settings; signing in to one does not sign in to the other.
 
 ### 4. Run the review
 
