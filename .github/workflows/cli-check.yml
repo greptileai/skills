@@ -11,6 +11,9 @@ name: CLI Check
 # same version, so the vendored file must always be extracted from `npm pack`,
 # never from a local `bun scripts/bundle.ts`.
 #
+# The npm comparison runs before anything executes the bundle, so a fork pull
+# request cannot run a modified script, and checkout keeps no credential.
+#
 # No secrets. As in mcp-check.yml, repo-controlled values are read from disk
 # and never interpolated into shell source with `${{ }}` — a fork pull request
 # controls these files.
@@ -40,6 +43,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Recorded version is well formed
         run: |
@@ -51,6 +56,22 @@ jobs:
           fi
           printf '%s' "$version" > "$RUNNER_TEMP/version.txt"
           echo "Recorded version $version"
+
+      - name: Bundle is byte-identical to the published npm release
+        run: |
+          set -euo pipefail
+          version=$(cat "$RUNNER_TEMP/version.txt")
+          cd "$RUNNER_TEMP"
+          npm pack "greptile@$version" >/dev/null
+          tar -xzf "greptile-$version.tgz"
+          cd "$GITHUB_WORKSPACE"
+          published=$(shasum -a 256 "$RUNNER_TEMP/package/dist/greptile.js" | cut -d' ' -f1)
+          vendored=$(shasum -a 256 scripts/greptile.mjs | cut -d' ' -f1)
+          if [ "$published" != "$vendored" ]; then
+            echo "::error::Vendored bundle does not match npm greptile@$version. published=$published vendored=$vendored. Re-vendor with: npm pack greptile@$version && tar -xzf greptile-$version.tgz && cp package/dist/greptile.js scripts/greptile.mjs"
+            exit 1
+          fi
+          echo "Vendored bundle matches npm greptile@$version ($vendored)."
 
       - name: Bundle runs and reports the recorded version
         run: |
@@ -71,22 +92,6 @@ jobs:
           cd "$RUNNER_TEMP"
           GREPTILE_NO_UPDATE_CHECK=1 node "$RUNNER_TEMP/installed plugin/scripts/greptile.mjs" login --help
           GREPTILE_NO_AUTO_INSTALL=1 GREPTILE_NO_UPDATE_CHECK=1 node "$RUNNER_TEMP/installed plugin/scripts/greptile.mjs" review --agent --help
-
-      - name: Bundle is byte-identical to the published npm release
-        run: |
-          set -euo pipefail
-          version=$(cat "$RUNNER_TEMP/version.txt")
-          cd "$RUNNER_TEMP"
-          npm pack "greptile@$version" >/dev/null
-          tar -xzf "greptile-$version.tgz"
-          cd "$GITHUB_WORKSPACE"
-          published=$(shasum -a 256 "$RUNNER_TEMP/package/dist/greptile.js" | cut -d' ' -f1)
-          vendored=$(shasum -a 256 scripts/greptile.mjs | cut -d' ' -f1)
-          if [ "$published" != "$vendored" ]; then
-            echo "::error::Vendored bundle does not match npm greptile@$version. published=$published vendored=$vendored. Re-vendor with: npm pack greptile@$version && tar -xzf greptile-$version.tgz && cp package/dist/greptile.js scripts/greptile.mjs"
-            exit 1
-          fi
-          echo "Vendored bundle matches npm greptile@$version ($vendored)."
 
       - name: cli-review invokes the vendored bundle with downloads suppressed
         run: |
