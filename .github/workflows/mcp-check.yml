@@ -110,9 +110,16 @@ jobs:
 
           with open(os.path.join(os.environ['RUNNER_TEMP'], 'tools.json')) as fh:
               payload = json.load(fh)
-          if 'result' not in payload:
-              sys.exit(f"::error::tools/list returned no result: {json.dumps(payload)[:400]}")
-          served_tools = {tool['name']: tool for tool in payload['result']['tools']}
+          result = payload.get('result') if isinstance(payload, dict) else None
+          tools = result.get('tools') if isinstance(result, dict) else None
+          if not isinstance(tools, list) or not all(
+              isinstance(tool, dict)
+              and isinstance(tool.get('name'), str)
+              and isinstance(tool.get('annotations', {}), dict)
+              for tool in tools
+          ):
+              sys.exit(f"::error::tools/list returned an unexpected shape: {json.dumps(payload)[:400]}")
+          served_tools = {tool['name']: tool for tool in tools}
           served = set(served_tools)
           if not served:
               sys.exit('::error::tools/list returned no tools.')
