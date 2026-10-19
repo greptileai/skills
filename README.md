@@ -39,7 +39,7 @@ To install into a single project instead of globally, run this from the project 
 npx skills add greptileai/skills
 ```
 
-### Alternative: git clone
+### Alternative: git clone (Claude Code)
 
 ```bash
 git clone https://github.com/greptileai/skills.git ~/.claude/skills/greptile
