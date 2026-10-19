@@ -61,7 +61,7 @@ The repository root is also a plugin for Claude Code and Codex. Besides the thre
 
 ```
 /plugin marketplace add greptileai/skills
-/plugin install greptile@greptile-claude-plugin
+/plugin install greptile@greptile-plugin
 ```
 
 Authenticate the MCP server from the `/mcp` menu. Skills run as `/greptile:cli-review`, `/greptile:check-pr`, and `/greptile:greploop`.
