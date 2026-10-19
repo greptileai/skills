@@ -1,5 +1,5 @@
 {
-  "name": "greptile-claude-plugin",
+  "name": "greptile-plugin",
   "description": "Official Greptile plugins for Claude Code.",
   "owner": {
     "name": "Greptile",
