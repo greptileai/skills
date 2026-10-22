@@ -20,6 +20,7 @@ Iteratively fix a PR/MR/CL until Greptile gives a perfect review: 5/5 confidence
 ## Inputs
 
 - **PR/MR/CL number** (optional): If not provided, detect the PR/MR for the current branch, or the default pending changelist for p4.
+- **`--no-commit`** / **`--fix-only`** (optional flag): Apply Greptile's fixes to the working tree without staging, committing, pushing, or re-shelving. Runs the cycle exactly once instead of looping -- see step 2.
 
 ## Instructions
 
@@ -77,9 +78,11 @@ Key field differences:
 
 Repeat the following cycle. **Max 5 iterations** to avoid runaway loops.
 
+With `--no-commit`/`--fix-only`, run the cycle exactly once: skip the push/re-shelve substep in **A**, skip **E** (resolving remote threads -- the fix isn't published yet), and skip **F** entirely instead of looping back to it.
+
 #### A. Trigger Greptile review
 
-Push/shelve the latest changes (if any):
+Push/shelve the latest changes (if any). **Skip this substep with `--no-commit`/`--fix-only`** -- fetch whatever review already exists for the current HEAD/CL instead of pushing new changes.
 
 **GitHub/GitLab:**
 ```bash
@@ -104,7 +107,7 @@ sleep 5
 GREPTILE_STATE=$(gh pr checks <PR_NUMBER> --json name,state | jq -r '.[] | select(.name | test("greptile"; "i")) | .state')
 ```
 
-If Greptile is **not** already running (`PENDING` or `IN_PROGRESS`), request a fresh review:
+If Greptile is **not** already running (`PENDING` or `IN_PROGRESS`), request a fresh review (with `--no-commit`/`--fix-only`, only if no Greptile review exists yet for the current HEAD -- otherwise use the existing one):
 
 ```bash
 if [ "$GREPTILE_STATE" != "PENDING" ] && [ "$GREPTILE_STATE" != "IN_PROGRESS" ]; then
@@ -331,6 +334,8 @@ For each unresolved Greptile comment:
 
 #### E. Resolve threads
 
+**Skip this step with `--no-commit`/`--fix-only`.** The fix only exists in the working tree at this point -- resolving a remote thread now would mark it resolved before the fix is actually pushed. A normal (non-fix-only) run resolves the threads here, as before.
+
 **GitHub** — fetch unresolved review threads and resolve all that have been addressed (see [GraphQL reference](references/graphql-queries.md)):
 
 ```bash
@@ -380,6 +385,8 @@ glab api --method PUT \
 Repeat for each unresolved discussion ID. (GitLab has no batch resolution — loop through each one.)
 
 #### F. Commit and push / re-shelve
+
+**Skip this step entirely with `--no-commit`/`--fix-only`.** Report the fixes that were made (step 3) and stop -- do not stage, commit, push, re-shelve, or return to step A. The working tree is left modified for the caller's own commit/push workflow.
 
 **GitHub/GitLab:**
 ```bash
@@ -451,4 +458,18 @@ Greploop complete.
   Confidence:    5/5
   Resolved:      9 comments
   Remaining:     0
+```
+
+**`--no-commit`/`--fix-only` example** (single pass, nothing committed, pushed, or resolved remotely):
+
+```
+Greploop fix-only pass complete.
+  Platform:      GitHub
+  Confidence:    3/5 (before fixes)
+  Fixed in tree: 4 comments
+  Remaining:     4
+
+Fixes applied to the working tree. Nothing was staged, committed, pushed, or
+resolved remotely -- the 4 threads above stay open on GitHub/GitLab until you
+push and resolve them yourself.
 ```
