@@ -7,38 +7,22 @@
 
 They are two ends of one pipeline. The CLI dispatches reviews; the MCP server reads them back — both the ones the CLI dispatched (`source: "headless"`) and the ones Greptile ran on your pull requests (`source: "pr"`).
 
-## Install
-
-Claude Code:
-
-```
-/plugin marketplace add greptileai/skills
-/plugin install greptile@greptile-plugin
-```
-
-Codex:
-
-```
-codex plugin marketplace add greptileai/skills
-codex plugin add greptile@greptile-plugin
-```
-
 ## Setup
 
-Nothing to install and no API key to create. Both surfaces sign in over OAuth at [auth.greptile.com](https://auth.greptile.com).
+Nothing to install and no API key to create.
 
-**MCP server.** Authenticate **greptile** from the `/mcp` menu in Claude Code, or connect it from the plugin settings in Codex. Your agent stores and refreshes the tokens.
+**MCP server.** Open the `/mcp` menu and authenticate **greptile**. Your browser opens [auth.greptile.com](https://auth.greptile.com); sign in and approve access. Claude Code stores and refreshes the tokens. In Codex, connect it from the plugin settings.
 
-**CLI.** Run `/greptile:login` in Claude Code, or ask Codex to sign in with the plugin's `login` skill. The CLI ships with the plugin, so there is no npm or Homebrew install to do, but it is a Node program and needs Node 22 or later.
+**CLI.** Run `/greptile:login` once and sign in through the same OAuth provider. The CLI ships with this plugin, so there is no npm or Homebrew install to do — but it is a Node program, so Node must be on your machine. In Codex, ask it to sign in with the plugin's `login` skill.
 
-The two sign-ins are separate: same Greptile account, same OAuth provider, but the CLI keeps its own credentials in `~/.greptile/auth.json` while your agent keeps the MCP tokens in its own store. Use whichever surface you need; you only have to sign in to that one.
+The two sign-ins are separate: same Greptile account, same OAuth provider, but the CLI keeps its own credentials in `~/.greptile/auth.json` while Claude Code keeps the MCP tokens in its own store. Use whichever surface you need; you only have to sign in to that one.
 
-## Skills
+## Commands
 
-- **review** (`/greptile:review` in Claude Code) — Review the current branch against its base. Accepts a base branch and free-text instructions ("focus on the auth changes").
-- **login** (`/greptile:login` in Claude Code) — Sign the CLI in to your Greptile account.
+- `/greptile:review` - Review the current branch against its base. Accepts a base branch and free-text instructions ("focus on the auth changes").
+- `/greptile:login` - Sign the CLI in to your Greptile account.
 
-For more Greptile skills, such as `greploop`, run `greptile skills install` or see the [repository README](https://github.com/greptileai/skills#readme).
+In Codex, these are the `review` and `login` skills.
 
 ## Tools
 
@@ -74,6 +58,13 @@ For more Greptile skills, such as `greploop`, run `greptile skills install` or s
 - `list_analytics_findings` - Findings with severity and security totals and trends, filterable by team, repository, author, severity, or status
 - `list_analytics_filter_options` - The teams, repositories, and authors available to you as analytics filters
 
+## Example usage
+
+- "Review my current branch with Greptile and fix what it finds"
+- "Show me Greptile's comments on my current PR and help me resolve them"
+- "What issues did Greptile find on PR #123?"
+- "Search our knowledge base for how authentication works in this repo"
+
 ## Bundled CLI
 
 `scripts/greptile.mjs` is the Greptile CLI, vendored from the published npm package
@@ -84,19 +75,19 @@ running here is the same one npm serves.
 
 Because the CLI ships with the plugin, it updates with the plugin — not through
 `greptile update`, `npm`, or `brew`. Any separate `greptile` you have installed is
-untouched and unused by the plugin, though both share your login at
+untouched and unused by these commands, though both share your login at
 `~/.greptile/auth.json`.
 
 ## Network access
 
-The plugin registers no hooks. What it contacts:
+This plugin registers no hooks. What it contacts:
 
 - `api.greptile.com` — the MCP server, the CLI's API, and CLI telemetry
   (below).
 - `auth.greptile.com` — OAuth sign-in, for both surfaces.
 - `app.greptile.com` — link targets printed in review output.
 - `127.0.0.1` — a loopback listener the CLI opens to receive the OAuth
-  callback during `login`, closed as soon as the redirect arrives.
+  callback during `/greptile:login`, closed as soon as the redirect arrives.
 
 ### Telemetry
 
@@ -111,19 +102,18 @@ Event-specific fields are fixed values: `method`, `exit_code`, `reason`, the
 version strings on an update, and the name of the Greptile-authored skill on
 the two skill events.
 
-When invoked without a TTY, as it is inside an agent, the CLI cannot ask for
-telemetry consent. It falls back to **anonymous mode**: a random `cli:<uuid>`
-stored in `telemetry.json`, no account token attached, and no profile built on
-the other end. If you have separately opted in from a standalone `greptile` on
-the same machine, that decision carries over here and events are sent under
-your account instead.
+Inside Claude Code and Codex the CLI is always non-interactive, so it cannot ask you to
+decide and does not try. It falls back to **anonymous mode**: a random
+`cli:<uuid>` stored in `telemetry.json`, no account token attached, and no
+profile built on the other end. If you have separately opted in from a
+standalone `greptile` on the same machine, that decision carries over here and
+events are sent under your account instead.
 
 To turn it off, any one of these is enough:
 
 ```sh
 export GREPTILE_TELEMETRY_DISABLED=1   # or DO_NOT_TRACK=1
-greptile settings set telemetry false  # standalone CLI
-node "<plugin-root>/scripts/greptile.mjs" settings set telemetry false  # bundled CLI
+greptile settings set telemetry false
 ```
 
 `CI=1` also disables it, and a CLI pointed at a self-hosted Greptile sends no
@@ -139,9 +129,9 @@ into `~/.cache/greptile/bin/`. The archive is checked against a SHA-256 pinned
 per platform inside the bundle and is deleted rather than run if the hash does
 not match; the download announces itself on stderr, and failing to get it
 degrades the diagram to a link instead of failing the review. Setting
-`GREPTILE_NO_AUTO_INSTALL=1` skips it. **The `review` skill sets that
-variable**, so the plugin does not download it — the code path
-is reachable only if you invoke the bundled CLI yourself without it.
+`GREPTILE_NO_AUTO_INSTALL=1` skips it. **`/greptile:review` already sets that
+variable**, so the plugin does not download it — the code path is reachable
+only if you invoke the bundled CLI yourself without it.
 
 ## Packaging for the OpenAI directory
 
@@ -153,3 +143,7 @@ git archive --format=zip --output=/tmp/greptile-plugin.zip HEAD:plugins/greptile
 
 `.codex-plugin/chatgpt-app-submission.json` holds the tool justifications and
 test cases for the submission form.
+
+## Documentation
+
+See [greptile.com/docs/mcp-v2/overview](https://www.greptile.com/docs/mcp-v2/overview).
