@@ -51,7 +51,7 @@ the two-minute default.
 
 If the run reports that no one is signed in, it prints `not signed in. Set
 GREPTILE_API_KEY or run 'greptile login --api-key'`. Prefer OAuth over an API
-key: tell the user to run `/greptile:login`, and stop there rather than
+key: tell the user to run `/greptile:login` (in Codex, the `login` skill), and stop there rather than
 starting a browser sign-in inside this command.
 
 This dispatches a **headless** review: it reviews the working branch and does
