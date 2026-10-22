@@ -19,7 +19,7 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Greptile",
-    "shortDescription": "AI code review for GitHub and GitLab",
+    "shortDescription": "Review code and PR feedback",
     "longDescription": "AI code review agent for GitHub and GitLab. View Greptile's PR review comments, run reviews on your working branch, and search your organization's knowledge base and coding patterns, directly from Codex.",
     "developerName": "Greptile",
     "category": "Developer Tools",
@@ -28,7 +28,8 @@
       "Write"
     ],
     "websiteURL": "https://www.greptile.com/",
-    "privacyPolicyURL": "https://www.greptile.com/privacy-policy",
+    "supportURL": "https://www.greptile.com/contact",
+    "privacyPolicyURL": "https://www.greptile.com/security/privacy",
     "termsOfServiceURL": "https://www.greptile.com/terms-of-service",
     "brandColor": "#16A34A",
     "composerIcon": "./assets/icon.svg",
