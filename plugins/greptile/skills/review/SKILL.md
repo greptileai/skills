@@ -21,7 +21,8 @@ containing this `SKILL.md`. Do not use a separately installed `greptile`.
 Build the rest of the command from what the user asked for, including any
 arguments:
 
-- A branch they want to review against becomes `--branch <BRANCH>`.
+- A branch they want to review against becomes `--branch '<BRANCH>'`, in
+  single quotes, escaped the same way as the instructions below.
 - Anything else is what they want the reviewer to focus on. Pass it as
   `--instructions '<their words>'` using **single** quotes, so the reviewer
   receives their exact text. Replace each `'` in their text with `'\''` and

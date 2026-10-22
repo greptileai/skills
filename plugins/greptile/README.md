@@ -38,7 +38,7 @@ The two sign-ins are separate: same Greptile account, same OAuth provider, but t
 - **review** (`/greptile:review` in Claude Code) — Review the current branch against its base. Accepts a base branch and free-text instructions ("focus on the auth changes").
 - **login** (`/greptile:login` in Claude Code) — Sign the CLI in to your Greptile account.
 
-For more Greptile skills, such as `greploop`, run `greptile skills install` or see the [repository README](../../README.md).
+For more Greptile skills, such as `greploop`, run `greptile skills install` or see the [repository README](https://github.com/greptileai/skills#readme).
 
 ## Tools
 
@@ -148,7 +148,7 @@ is reachable only if you invoke the bundled CLI yourself without it.
 The OpenAI directory takes a ZIP of the plugin. From the repository root, package a committed revision, including the bundled CLI, without repository-only files:
 
 ```sh
-git archive --format=zip --output=/tmp/greptile-plugin.zip HEAD:plugins/greptile -- .codex-plugin/plugin.json .mcp.json assets scripts skills README.md
+git archive --format=zip --output=/tmp/greptile-plugin.zip HEAD:plugins/greptile -- .codex-plugin/plugin.json .mcp.json assets scripts skills LICENSE README.md
 ```
 
 `.codex-plugin/chatgpt-app-submission.json` holds the tool justifications and
