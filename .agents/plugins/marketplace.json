@@ -8,7 +8,7 @@
       "name": "greptile",
       "source": {
         "source": "local",
-        "path": "./"
+        "path": "./plugins/greptile"
       },
       "policy": {
         "installation": "AVAILABLE",
