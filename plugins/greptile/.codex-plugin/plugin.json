@@ -1,6 +1,6 @@
 {
   "name": "greptile",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "AI code review agent for GitHub and GitLab. View Greptile's PR review comments, run reviews on your working branch, and search your organization's knowledge base and coding patterns, directly from Codex.",
   "author": {
     "name": "Greptile",
