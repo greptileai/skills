@@ -14,7 +14,7 @@
         "url": "https://greptile.com"
       },
       "category": "development",
-      "source": "./",
+      "source": "./plugins/greptile",
       "homepage": "https://www.greptile.com/docs/mcp-v2/overview"
     }
   ]

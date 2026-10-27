@@ -22,15 +22,15 @@ on:
   push:
     branches: [main]
     paths:
-      - '.mcp.json'
-      - 'README.md'
-      - '.codex-plugin/**'
+      - 'plugins/greptile/.mcp.json'
+      - 'plugins/greptile/README.md'
+      - 'plugins/greptile/.codex-plugin/**'
       - '.github/workflows/mcp-check.yml'
   pull_request:
     paths:
-      - '.mcp.json'
-      - 'README.md'
-      - '.codex-plugin/**'
+      - 'plugins/greptile/.mcp.json'
+      - 'plugins/greptile/README.md'
+      - 'plugins/greptile/.codex-plugin/**'
       - '.github/workflows/mcp-check.yml'
   schedule:
     - cron: '17 8 * * *'
@@ -49,7 +49,7 @@ jobs:
       - name: Resolve the declared server config
         run: |
           set -euo pipefail
-          config=.mcp.json
+          config=plugins/greptile/.mcp.json
           # Claude Code accepts a bare server map and one wrapped in
           # `mcpServers`; Codex needs the wrapper. Normalise before asserting
           # anything, so either shape is checked.
@@ -72,7 +72,7 @@ jobs:
         run: |
           set -euo pipefail
           if jq -e '.greptile | has("headers") or has("bearer_token_env_var")' "$RUNNER_TEMP/servers.json" >/dev/null; then
-            echo "::error::.mcp.json declares headers or bearer_token_env_var. An Authorization header disables Claude Code's OAuth fallback; the server authenticates over OAuth and needs neither."
+            echo "::error::plugins/greptile/.mcp.json declares headers or bearer_token_env_var. An Authorization header disables Claude Code's OAuth fallback; the server authenticates over OAuth and needs neither."
             exit 1
           fi
           echo "No headers declared."
@@ -124,7 +124,7 @@ jobs:
           if not served:
               sys.exit('::error::tools/list returned no tools.')
 
-          readme = open('README.md').read()
+          readme = open('plugins/greptile/README.md').read()
           documented = set(re.findall(r'^- `([a-z_]+)`', readme, re.M))
           documented |= set(re.findall(r'/ `([a-z_]+)`', readme))
 
@@ -138,7 +138,7 @@ jobs:
               sys.exit(1)
           print(f"README documents all {len(served)} served tools.")
 
-          submission = json.load(open('.codex-plugin/chatgpt-app-submission.json'))
+          submission = json.load(open('plugins/greptile/.codex-plugin/chatgpt-app-submission.json'))
           assert set(submission['tools']) == served, 'Submission tool names differ from tools/list'
           assert len(submission['test_cases']) == 5
           assert len(submission['negative_test_cases']) == 3
