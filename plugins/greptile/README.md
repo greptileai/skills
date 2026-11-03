@@ -13,7 +13,7 @@ Nothing to install and no API key to create.
 
 **Devin.** Install with `devin plugins install greptileai/skills#plugins/greptile`.
 
-**MCP server.** Open the `/mcp` menu and authenticate **greptile**. Your browser opens [auth.greptile.com](https://auth.greptile.com); sign in and approve access. Claude Code stores and refreshes the tokens. In Codex, connect it from the plugin settings.
+**MCP server.** Open the `/mcp` menu and authenticate **greptile**. Your browser opens [auth.greptile.com](https://auth.greptile.com); sign in and approve access. Claude Code stores and refreshes the tokens. In Codex, connect it from the plugin settings; in Devin, from Customize → MCPs.
 
 **CLI.** Run `/greptile:login` once and sign in through the same OAuth provider. The CLI ships with this plugin, so there is no npm or Homebrew install to do — but it is a Node program, so Node must be on your machine. In Codex, ask it to sign in with the plugin's `login` skill.
 
@@ -71,11 +71,10 @@ In Codex, these are the `review` and `login` skills.
 
 `scripts/greptile.mjs` is the Greptile CLI, vendored from the published npm package
 `greptile` (its `dist/greptile.js`, renamed only so Node reads it as ESM without a
-sibling `package.json`). `scripts/greptile.version` records which release it is.
-Keep the versions in `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and
-`.devin-plugin/plugin.json` in sync when releasing.
+sibling `package.json`). `scripts/greptile.version` records which release it is, and
 CI verifies the file byte-for-byte against that version's npm tarball, so the copy
-running here is the same one npm serves.
+running here is the same one npm serves. Keep the versions in `.claude-plugin/plugin.json`,
+`.codex-plugin/plugin.json`, and `.devin-plugin/plugin.json` in sync when releasing.
 
 Because the CLI ships with the plugin, it updates with the plugin — not through
 `greptile update`, `npm`, or `brew`. Any separate `greptile` you have installed is
