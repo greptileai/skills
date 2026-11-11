@@ -241,7 +241,7 @@ Filter for Greptile-authored comments and use the body from the most recently up
 
 **3. PR reviews:**
 ```bash
-gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/reviews
+gh api --paginate "repos/{owner}/{repo}/pulls/<PR_NUMBER>/reviews?per_page=100"
 ```
 
 Look for the most recent entry from `greptile-apps[bot]` or `greptile-apps-staging[bot]`.
@@ -293,7 +293,7 @@ Also fetch all unresolved inline comments:
 
 **GitHub:**
 ```bash
-gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments
+gh api --paginate "repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments?per_page=100"
 ```
 
 Also carry forward actionable items from the latest Greptile general PR comment, especially the "Prompt to fix all with AI" section, even if the inline comment endpoint returns zero unresolved comments.
